@@ -48,8 +48,6 @@ items:
       metadata:
         labels:
           app: playground
-        annotations:
-          prometheseus.io/scrape: "true"
       spec:
         containers:
         - name: playground
