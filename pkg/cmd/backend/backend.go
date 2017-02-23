@@ -22,7 +22,8 @@ type promWriter struct {
 }
 
 var (
-	html = `
+	indexTemplate *template.Template
+	html          = `
 <!doctype html>
 <html lang="en">
 <head>
@@ -52,6 +53,8 @@ var (
 func init() {
 	prometheus.MustRegister(httpRequestsReceived)
 	prometheus.MustRegister(httpRequestsProcessed)
+
+	indexTemplate = template.Must(template.New("/").Parse(html))
 }
 
 func NewPromWriter(w http.ResponseWriter) *promWriter {
@@ -128,22 +131,18 @@ func Run() error {
 			log.Panic(err)
 		}
 
-		http.HandleFunc("/healthz", httpCounter(healthzHandler))
-		http.Handle("/metrics", loggingWriter.HTTPLogrusLogger(httpCounter(prometheus.Handler())))
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		mux := http.NewServeMux()
+
+		mux.Handle("/healthz", healthzHandler)
+		mux.Handle("/metrics", prometheus.Handler())
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			httpRequestsReceived.With(prometheus.Labels{"url": "/"}).Inc()
 
 			type data struct {
 				Hostname string
 			}
 
-			tmp, err := template.New("/").Parse(html)
-			if err != nil {
-				log.WithError(err).WithField("template", "/").Errorf("Unable to parse template")
-				return
-			}
-
-			err = tmp.Execute(w, data{Hostname: hostname})
+			err = indexTemplate.Execute(w, data{Hostname: hostname})
 			if err != nil {
 				log.WithError(err).Error("Unable to execute template")
 			}
@@ -152,7 +151,7 @@ func Run() error {
 		})
 
 		log.Infof("HTTPS service listening on %s", ":8080")
-		errc <- http.ListenAndServe(":8080", nil)
+		errc <- http.ListenAndServe(":8080", loggingWriter.HTTPLogrusLogger(httpCounter(mux)))
 	}()
 
 	// wait for somthin'
