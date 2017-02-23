@@ -11,7 +11,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/mchudgins/certMgr/pkg/healthz"
-	"github.com/mchudgins/go-service-helper/pkg/loggingWriter"
+	"github.com/mchudgins/go-service-helper/loggingWriter"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
