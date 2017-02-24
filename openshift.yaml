@@ -51,7 +51,7 @@ items:
       spec:
         containers:
         - name: playground
-          image: mchudgins/playground:0.0.16
+          image: mchudgins/playground:0.0.20
           args:
             - backend
           env:
