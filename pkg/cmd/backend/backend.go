@@ -13,6 +13,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
 	"github.com/mchudgins/certMgr/pkg/healthz"
+	"github.com/mchudgins/go-service-helper/actuator"
 	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/mchudgins/go-service-helper/loggingWriter"
 	"github.com/prometheus/client_golang/prometheus"
@@ -150,7 +151,7 @@ func Run() error {
 			log.Panic(err)
 		}
 
-		mux := http.NewServeMux()
+		mux := actuator.NewActuatorMux("")
 
 		mux.Handle("/healthz", healthzHandler)
 		mux.Handle("/metrics", prometheus.Handler())
