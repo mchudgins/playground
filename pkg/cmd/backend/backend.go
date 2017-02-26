@@ -145,13 +145,13 @@ func Run() error {
 
 	// http server
 	go func() {
+		mux := actuator.NewActuatorMux("")
+
 		hc, err := healthz.NewConfig()
 		healthzHandler, err := healthz.Handler(hc)
 		if err != nil {
 			log.Panic(err)
 		}
-
-		mux := actuator.NewActuatorMux("")
 
 		mux.Handle("/healthz", healthzHandler)
 		mux.Handle("/metrics", prometheus.Handler())
@@ -197,7 +197,7 @@ func Run() error {
 			httpRequestsProcessed.With(prometheus.Labels{"url": "/", "status": "200"}).Inc()
 		})
 
-		log.Infof("HTTPS service listening on %s", ":8080")
+		log.WithField("port", ":8080").Info("HTTPS service listening.")
 		errc <- http.ListenAndServe(":8080", loggingWriter.HTTPLogrusLogger(httpCounter(mux)))
 	}()
 
