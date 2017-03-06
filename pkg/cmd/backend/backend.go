@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"expvar"
 	"fmt"
 	"net/http"
 	"os"
@@ -155,6 +156,7 @@ func Run() error {
 
 		mux.Handle("/healthz", healthzHandler)
 		mux.Handle("/metrics", prometheus.Handler())
+		mux.Handle("/debug/vars", expvar.Handler())
 
 		apiMux := http.NewServeMux()
 		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -168,14 +170,18 @@ func Run() error {
 
 			err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/api/v1"})
 			if err != nil {
-				log.WithError(err).Error("Unable to execute template")
+				log.WithError(err).
+					WithField("template", indexTemplate.Name()).
+					WithField("path", r.URL.Path).
+					Error("Unable to execute template")
 			}
 
 			httpRequestsProcessed.With(prometheus.Labels{"url": r.URL.Path, "status": "200"}).Inc()
 		})
 		circuitBreaker, err := hystrix.NewHystrixHelper("grpc-backend")
 		if err != nil {
-			log.Fatalf("Error creating circuitBreaker: %s", err)
+			log.WithError(err).
+				Fatalf("Error creating circuitBreaker")
 		}
 		metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
 		mux.Handle("/api/v1/", circuitBreaker.Handler(apiMux))
@@ -183,18 +189,32 @@ func Run() error {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			httpRequestsReceived.With(prometheus.Labels{"url": "/"}).Inc()
 
+			status := http.StatusOK
+
 			type data struct {
 				Hostname string
 				URL      string
 				Handler  string
 			}
 
-			err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/"})
-			if err != nil {
-				log.WithError(err).Error("Unable to execute template")
+			switch r.URL.Path {
+			case "/":
+				err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/"})
+				if err != nil {
+					log.WithError(err).
+						WithField("template", indexTemplate.Name()).
+						WithField("path", r.URL.Path).
+						Error("Unable to execute template")
+					status = http.StatusServiceUnavailable
+				}
+				break
+
+			default:
+				status = http.StatusNotFound
+				http.NotFound(w, r)
 			}
 
-			httpRequestsProcessed.With(prometheus.Labels{"url": "/", "status": "200"}).Inc()
+			httpRequestsProcessed.With(prometheus.Labels{"url": "/", "status": strconv.Itoa(status)}).Inc()
 		})
 
 		log.WithField("port", ":8080").Info("HTTPS service listening.")
