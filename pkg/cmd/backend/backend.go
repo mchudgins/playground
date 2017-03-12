@@ -11,12 +11,16 @@ import (
 	"text/template"
 	"time"
 
+	"encoding/json"
+	"strings"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
 	"github.com/mchudgins/certMgr/pkg/healthz"
 	"github.com/mchudgins/go-service-helper/actuator"
 	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/mchudgins/go-service-helper/loggingWriter"
+	"github.com/mchudgins/go-service-helper/serveSwagger"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -154,9 +158,15 @@ func Run() error {
 			log.Panic(err)
 		}
 
+		mux.Handle("/debug/vars", expvar.Handler())
 		mux.Handle("/healthz", healthzHandler)
 		mux.Handle("/metrics", prometheus.Handler())
-		mux.Handle("/debug/vars", expvar.Handler())
+
+		swaggerProxy, _ := serveSwagger.NewSwaggerProxy("/swagger-ui/")
+		mux.Handle("/swagger-ui/", swaggerProxy)
+
+		mux.Handle("/swagger/",
+			http.StripPrefix("/swagger/", Server))
 
 		apiMux := http.NewServeMux()
 		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -168,12 +178,31 @@ func Run() error {
 				Handler  string
 			}
 
-			err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/api/v1"})
-			if err != nil {
-				log.WithError(err).
-					WithField("template", indexTemplate.Name()).
-					WithField("path", r.URL.Path).
-					Error("Unable to execute template")
+			type echo struct {
+				Message string `json:"message"`
+			}
+
+			if strings.HasPrefix(r.URL.Path, "/api/v1/echo/") {
+				m := &echo{
+					Message: "hello, " + r.URL.Path[len("/api/v1/echo/"):],
+				}
+				buf, err := json.Marshal(m)
+				if err != nil {
+					log.WithError(err).WithField("message", m.Message).
+						Error("while serializing echo response")
+					w.WriteHeader(http.StatusInternalServerError)
+				} else {
+					w.Header().Set("Content-Type", "application/json")
+					w.Write(buf)
+				}
+			} else {
+				err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/api/v1"})
+				if err != nil {
+					log.WithError(err).
+						WithField("template", indexTemplate.Name()).
+						WithField("path", r.URL.Path).
+						Error("Unable to execute template")
+				}
 			}
 
 			httpRequestsProcessed.With(prometheus.Labels{"url": r.URL.Path, "status": "200"}).Inc()

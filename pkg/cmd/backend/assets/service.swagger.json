@@ -1,0 +1,101 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "service.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/echo/{name}": {
+      "get": {
+        "summary": "Sends a greeting",
+        "operationId": "SayHello",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/serviceHelloReply"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "string"
+          }
+        ],
+        "tags": [
+          "Greeter"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "serviceCommonRequest": {
+      "type": "object",
+      "properties": {
+        "correlationID": {
+          "type": "string",
+          "format": "string"
+        },
+        "spanID": {
+          "type": "string",
+          "format": "string"
+        },
+        "user": {
+          "type": "string",
+          "format": "string"
+        }
+      },
+      "title": "The request message containing:\n  - the authenticated user ID\n  - the correlationID\n  - the spanID"
+    },
+    "serviceCommonResponse": {
+      "type": "object",
+      "properties": {
+        "correlationID": {
+          "type": "string",
+          "format": "string"
+        }
+      },
+      "title": "The response message"
+    },
+    "serviceHelloReply": {
+      "type": "object",
+      "properties": {
+        "common": {
+          "$ref": "#/definitions/serviceCommonResponse"
+        },
+        "message": {
+          "type": "string",
+          "format": "string"
+        }
+      },
+      "title": "The response message containing the greetings"
+    },
+    "serviceHelloRequest": {
+      "type": "object",
+      "properties": {
+        "common": {
+          "$ref": "#/definitions/serviceCommonRequest"
+        },
+        "name": {
+          "type": "string",
+          "format": "string"
+        }
+      },
+      "description": "The request message containing the user's name."
+    }
+  }
+}
