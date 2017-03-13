@@ -15,7 +15,7 @@ const DefaultHTML = `<!doctype html>
   	.active_status { color: blue; }
   	.deprecated_status { color: gray; }
   	.deprecated_desc_status::after { content: " (deprecated)"; }
-  	.name_col { display: inline-block; width: 15em; }
+  	.name_col { display: inline-block; width: 7em; }
   	.version_col { display: inline-block; width: 5em; }
   	.desc_col { display: inline-block; width: 60em; }
   	.apiEndpoint { display: block; margin-left: 4em; }
@@ -34,6 +34,7 @@ const DefaultHTML = `<!doctype html>
 	{{range .Endpoints}}
 	<div class="apiEndpoint {{.Status}}_status">
 		<div class="name_col">{{if not .SwaggerURL}}{{.Name}}{{else}}<a href="{{.SwaggerURL}}">{{.Name}}</a>{{end}}</div>
+		<div class="version_col">{{.Version}}</div>
 		<div class="desc_col {{ .Status }}_desc_status">{{ .Desc }}</div>
 	</div>
 	{{end}}

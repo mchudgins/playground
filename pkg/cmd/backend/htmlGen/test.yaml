@@ -30,7 +30,7 @@
       desc: Beta Test Platform
       swaggerURL:  http://swagger.dstcorp.net/?url=http://mfb.dstcorp.net/swagger/service.swagger.json
     - name: MFA
-      version: v1beta2
+      version: v2alpha1
       desc: Alpha Test Platform
       swaggerURL:  http://swagger.dstcorp.net/?url=http://mfa.dstcorp.net/swagger/service.swagger.json
 - name: API Explorer
