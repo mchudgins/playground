@@ -1,5 +1,7 @@
 package backend
 
+//go:generate go run ../../../main.go htmlGen ../../../cmd/htmlGen/test.yaml
+
 import (
 	"expvar"
 	"fmt"
@@ -21,6 +23,7 @@ import (
 	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/mchudgins/go-service-helper/loggingWriter"
 	"github.com/mchudgins/go-service-helper/serveSwagger"
+	"github.com/mchudgins/playground/pkg/cmd/backend/htmlGen"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -228,6 +231,12 @@ func Run(port string) error {
 
 			switch r.URL.Path {
 			case "/":
+				log.Infof("found /")
+				r.URL.Path = "/apiList.html"
+				htmlGen.Server.ServeHTTP(w, r)
+				break
+
+			case "/test":
 				err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/"})
 				if err != nil {
 					log.WithError(err).
@@ -246,7 +255,7 @@ func Run(port string) error {
 			httpRequestsProcessed.With(prometheus.Labels{"url": "/", "status": strconv.Itoa(status)}).Inc()
 		})
 
-		log.WithField("port", port).Info("HTTPS service listening.")
+		log.WithField("port", port).Info("HTTP service listening.")
 		errc <- http.ListenAndServe(port, loggingWriter.HTTPLogrusLogger(httpCounter(mux)))
 	}()
 

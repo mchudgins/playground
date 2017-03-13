@@ -1,0 +1,45 @@
+#
+# test.yaml
+#
+# document your API's here.
+#
+# Example:
+# - name: gorf api set  # required, name+version must be unique amongst all entries in this file
+#   iconURL: https://api.dstsystems.com/images/api-icon.ico  # this should be a small favicon. default is DST's favicon
+#   desc:  We will solve world hunger with this API for the gorf product!  # give the user a description of the API
+#   status:  active # one of 'active', 'deprecated', 'unavailable'.  default is 'active'
+#   public: true # whether clients/partners may access the API. default is false
+#   version: v1 # an API-ish version: typically something like v1, v2, v1beta1, etc. default is 'v1'
+
+- name: zzzz
+  desc: api run slowly?
+  swaggerURL: https://zzz.example.com/swagger-ui
+- name: gorf
+  desc: Tired of 'fubar'? Use the new 'gorf' API!
+- name: fubar
+  desc: Foo-Bar
+- name: CSW
+  desc: Customer Service Workstation
+  status: deprecated
+  swaggerURL: https://csw.example.com/api/swagger-ui
+- name: TA2000
+  desc: Mutual Fund Transfer Agency System
+  endpoints:
+    - name: MFB
+      version: v1.1
+      desc: Beta Test Platform
+      swaggerURL:  http://swagger.dstcorp.net/?url=http://mfb.dstcorp.net/swagger/service.swagger.json
+    - name: MFA
+      version: v1beta2
+      desc: Alpha Test Platform
+      swaggerURL:  http://swagger.dstcorp.net/?url=http://mfa.dstcorp.net/swagger/service.swagger.json
+- name: API Explorer
+  swaggerURL: http://bigblue.lan:8080/swagger-ui/?url=http://bigblue.lan:8080/swagger/service.swagger.json
+  desc: manage the API Explorer
+  endpoints:
+    - name: prod
+      swaggerURL: http://bigblue.lan:8080/swagger-ui/?url=http://bigblue.lan:8080/swagger/service.swagger.json
+      desc: DST Public API Explorer
+    - name: localhost
+      swaggerURL: http://localhost:8080/swagger-ui/?url=http://localhost:8080/swagger/service.swagger.json
+      desc: Test instance running on your machine

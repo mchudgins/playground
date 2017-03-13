@@ -34,8 +34,8 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		port, err := cmd.PersistentFlags().GetString("port")
 		if err != nil {
-			fmt.Println("error:  %s", err )
-			return;
+			fmt.Println("error:  %s", err)
+			return
 		}
 		err = backend.Run(port)
 		if err != nil {

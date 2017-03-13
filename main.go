@@ -15,12 +15,9 @@
 package main
 
 import (
-	"log"
-
 	"github.com/mchudgins/playground/cmd"
 )
 
 func main() {
-	log.Printf("hello, world")
 	cmd.Execute()
 }

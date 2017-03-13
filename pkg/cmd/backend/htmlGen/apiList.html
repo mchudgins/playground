@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>DST API Explorer</title>
+  <style>
+  	div.row:nth-child(odd) { background-color: whitesmoke; }
+  	div.row:nth-child(even) { background-color: white; }
+
+  	.unavailable_status { color: gray; }
+  	.unavailable_desc_status::after { content: " (unavailable)"; }
+  	.active_status { color: blue; }
+  	.deprecated_status { color: gray; }
+  	.deprecated_desc_status::after { content: " (deprecated)"; }
+  	.name_col { display: inline-block; width: 15em; }
+  	.version_col { display: inline-block; width: 5em; }
+  	.desc_col { display: inline-block; width: 60em; }
+  	.apiEndpoint { display: block; margin-left: 4em; }
+  	.apiSet { font-size: 110%; font-weight: bold; }
+  </style>
+</head>
+<body>
+<h1>API Explorer</h1>
+<div>
+
+<div class="row">
+	<div class="apiSet">
+		<div class="name_col">API Explorer</div>
+		<div class="desc_col">manage the API Explorer</div>
+	</div>
+	
+	<div class="apiEndpoint active_status">
+		<div class="name_col"><a href="http://bigblue.lan:8080/swagger-ui/?url=http://bigblue.lan:8080/swagger/service.swagger.json">prod</a></div>
+		<div class="desc_col active_desc_status">DST Public API Explorer</div>
+	</div>
+	
+	<div class="apiEndpoint active_status">
+		<div class="name_col"><a href="http://localhost:8080/swagger-ui/?url=http://localhost:8080/swagger/service.swagger.json">localhost</a></div>
+		<div class="desc_col active_desc_status">Test instance running on your machine</div>
+	</div>
+	
+</div>
+
+<div class="row">
+	<div class="apiSet">
+		<div class="name_col">CSW</div>
+		<div class="desc_col">Customer Service Workstation</div>
+	</div>
+	
+</div>
+
+<div class="row">
+	<div class="apiSet">
+		<div class="name_col">TA2000</div>
+		<div class="desc_col">Mutual Fund Transfer Agency System</div>
+	</div>
+	
+	<div class="apiEndpoint active_status">
+		<div class="name_col"><a href="http://swagger.dstcorp.net/?url=http://mfb.dstcorp.net/swagger/service.swagger.json">MFB</a></div>
+		<div class="desc_col active_desc_status">Beta Test Platform</div>
+	</div>
+	
+	<div class="apiEndpoint active_status">
+		<div class="name_col"><a href="http://swagger.dstcorp.net/?url=http://mfa.dstcorp.net/swagger/service.swagger.json">MFA</a></div>
+		<div class="desc_col active_desc_status">Alpha Test Platform</div>
+	</div>
+	
+</div>
+
+<div class="row">
+	<div class="apiSet">
+		<div class="name_col">fubar</div>
+		<div class="desc_col">Foo-Bar</div>
+	</div>
+	
+</div>
+
+<div class="row">
+	<div class="apiSet">
+		<div class="name_col">gorf</div>
+		<div class="desc_col">Tired of &#39;fubar&#39;? Use the new &#39;gorf&#39; API!</div>
+	</div>
+	
+</div>
+
+<div class="row">
+	<div class="apiSet">
+		<div class="name_col">zzzz</div>
+		<div class="desc_col">api run slowly?</div>
+	</div>
+	
+</div>
+
+</div>
+</body>
+</html>
