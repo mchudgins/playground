@@ -128,7 +128,7 @@ func httpCounter(fn http.Handler) http.HandlerFunc {
 	}
 }
 
-func Run() error {
+func Run(port string) error {
 	log.Printf("backend.Run()")
 
 	hostname, err := os.Hostname()
@@ -246,8 +246,8 @@ func Run() error {
 			httpRequestsProcessed.With(prometheus.Labels{"url": "/", "status": strconv.Itoa(status)}).Inc()
 		})
 
-		log.WithField("port", ":8080").Info("HTTPS service listening.")
-		errc <- http.ListenAndServe(":8080", loggingWriter.HTTPLogrusLogger(httpCounter(mux)))
+		log.WithField("port", port).Info("HTTPS service listening.")
+		errc <- http.ListenAndServe(port, loggingWriter.HTTPLogrusLogger(httpCounter(mux)))
 	}()
 
 	// wait for somthin'
