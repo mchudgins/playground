@@ -14,6 +14,16 @@
   "produces": [
     "application/json"
   ],
+  "securityDefinitions": {
+  "UserSecurity": {
+    "type": "apiKey",
+    "in": "header",
+    "name": "Authorization"
+  }
+},
+  "security": [
+    {"UserSecurity":[]}
+  ],
   "paths": {
     "/api/v1/echo/{name}": {
       "get": {
