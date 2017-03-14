@@ -231,7 +231,6 @@ func Run(port string) error {
 
 			switch r.URL.Path {
 			case "/":
-				log.Infof("found /")
 				r.URL.Path = "/apiList.html"
 				htmlGen.Server.ServeHTTP(w, r)
 				break

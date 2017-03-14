@@ -78,6 +78,10 @@ func Run(cmd *cobra.Command, args []string) {
 	// fill in the blanks and validate
 	for i, api := range apiList {
 
+		sort.Slice(apiList[i].Endpoints, func(j, k int) bool {
+			return api.Endpoints[j].Name < api.Endpoints[k].Name
+		})
+
 		for j, endpt := range api.Endpoints {
 			if len(endpt.Status) == 0 {
 				apiList[i].Endpoints[j].Status = "active"
