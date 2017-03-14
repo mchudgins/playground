@@ -11,17 +11,14 @@
 #   public: true # whether clients/partners may access the API. default is false
 #   version: v1 # an API-ish version: typically something like v1, v2, v1beta1, etc. default is 'v1'
 
-- name: zzzz
-  desc: api run slowly?
-  swaggerURL: https://zzz.example.com/swagger-ui
-- name: gorf
-  desc: Tired of 'fubar'? Use the new 'gorf' API!
-- name: fubar
-  desc: Foo-Bar
 - name: CSW
   desc: Customer Service Workstation
-  status: deprecated
-  swaggerURL: https://csw.example.com/api/swagger-ui
+  endpoints:
+    - name: prod
+      version: v1
+      swaggerURL: http://mfa.dstcorp.net/
+      desc: Legacy production instance
+      status: deprecated
 - name: TA2000
   desc: Mutual Fund Transfer Agency System
   endpoints:
@@ -35,11 +32,11 @@
       swaggerURL:  http://swagger.dstcorp.net/?url=http://mfa.dstcorp.net/swagger/service.swagger.json
 - name: API Explorer
   swaggerURL: http://bigblue.lan:8080/swagger-ui/?url=http://bigblue.lan:8080/swagger/service.swagger.json
-  desc: manage the API Explorer
+  desc: Manage the API Explorer
   endpoints:
     - name: prod
       swaggerURL: http://bigblue.lan:8080/swagger-ui/?url=http://bigblue.lan:8080/swagger/service.swagger.json
-      desc: DST Public API Explorer
+      desc: Public API Explorer
     - name: localhost
       swaggerURL: http://localhost:8080/swagger-ui/?url=http://localhost:8080/swagger/service.swagger.json
       desc: Test instance running on your machine
