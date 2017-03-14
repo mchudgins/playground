@@ -7,6 +7,7 @@ const DefaultHTML = `<!doctype html>
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <title>DST API Explorer</title>
   <style>
+  	div.row { margin-bottom: 0.75em; padding-top: .25em; padding-bottom: .25em; }
   	div.row:nth-child(odd) { background-color: whitesmoke; }
   	div.row:nth-child(even) { background-color: white; }
 
