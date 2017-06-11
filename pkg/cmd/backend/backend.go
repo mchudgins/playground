@@ -18,12 +18,15 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
+	"github.com/gorilla/handlers"
+	"github.com/justinas/alice"
 	"github.com/mchudgins/certMgr/pkg/healthz"
 	"github.com/mchudgins/go-service-helper/actuator"
 	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/mchudgins/go-service-helper/loggingWriter"
 	"github.com/mchudgins/go-service-helper/serveSwagger"
 	"github.com/mchudgins/playground/pkg/cmd/backend/htmlGen"
+	"github.com/mchudgins/playground/tmp"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -80,7 +83,7 @@ func init() {
 }
 
 func NewPromWriter(w http.ResponseWriter) *promWriter {
-	return &promWriter{w: w}
+	return &promWriter{w: w, statusCode: 200}
 }
 
 func (l *promWriter) Header() http.Header {
@@ -112,8 +115,8 @@ func (l *promWriter) StatusCode() int {
 	return l.statusCode
 }
 
-func httpCounter(fn http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func httpCounter(fn http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
 		u := r.URL.Path
@@ -128,7 +131,7 @@ func httpCounter(fn http.Handler) http.HandlerFunc {
 		}()
 
 		fn.ServeHTTP(pw, r)
-	}
+	})
 }
 
 func Run(port string) error {
@@ -230,7 +233,7 @@ func Run(port string) error {
 			}
 
 			switch r.URL.Path {
-			case "/":
+			case "/apis-explorer":
 				r.URL.Path = "/apiList.html"
 				htmlGen.Server.ServeHTTP(w, r)
 				break
@@ -247,15 +250,24 @@ func Run(port string) error {
 				break
 
 			default:
-				status = http.StatusNotFound
-				http.NotFound(w, r)
+				if r.URL.Path == "/" {
+					r.URL.Path = "/index.html"
+				}
+
+				tmp.ServeHTTPWithIndexes(w, r)
+				//				status = http.StatusNotFound
+				//				http.NotFound(w, r)
 			}
 
 			httpRequestsProcessed.With(prometheus.Labels{"url": "/", "status": strconv.Itoa(status)}).Inc()
 		})
 
+		canonical := handlers.CanonicalHost("http://localhost:8080", http.StatusPermanentRedirect)
+		h := TracerFromHTTPRequest(NewTracer(), "playground")(mux)
+		chain := alice.New(loggingWriter.HTTPLogrusLogger, httpCounter, canonical).Then(h)
+
 		log.WithField("port", port).Info("HTTP service listening.")
-		errc <- http.ListenAndServe(port, loggingWriter.HTTPLogrusLogger(httpCounter(mux)))
+		errc <- http.ListenAndServe(port, chain)
 	}()
 
 	// wait for somthin'
