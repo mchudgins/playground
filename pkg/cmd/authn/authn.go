@@ -1,6 +1,4 @@
-package backend
-
-//go:generate go run ../../../main.go htmlGen ../../../cmd/htmlGen/test.yaml
+package authn
 
 import (
 	"expvar"
@@ -8,13 +6,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
-	"text/template"
-	"time"
 
 	"encoding/json"
+	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
@@ -24,9 +21,7 @@ import (
 	"github.com/mchudgins/go-service-helper/actuator"
 	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/mchudgins/go-service-helper/loggingWriter"
-	"github.com/mchudgins/go-service-helper/serveSwagger"
-	"github.com/mchudgins/playground/pkg/cmd/backend/htmlGen"
-	"github.com/mchudgins/playground/tmp"
+	"github.com/mchudgins/playground/pkg/cmd/backend"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -37,50 +32,28 @@ type promWriter struct {
 }
 
 var (
-	indexTemplate *template.Template
-	html          = `
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <title>Welcome to OpenShift</title>
-  <p>This is {{.Hostname}}</p>
-  <p>Page: {{.URL}}</p>
-  <p>Handler: {{.Handler}}</p>
-</body>
-</html>`
-
-	httpRequestsReceived = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "httpRequestsReceived_total",
-			Help: "Number of HTTP requests received.",
-		},
-		[]string{"url"},
-	)
-	httpRequestsProcessed = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "httpRequestsProcessed_total",
-			Help: "Number of HTTP requests processed.",
-		},
-		[]string{"url", "status"},
-	)
-	httpRequestDuration = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name: "http_response_duration",
-			Help: "Duration of HTTP responses.",
-		},
-		[]string{"url", "status"},
-	)
+httpRequestsReceived = prometheus.NewCounterVec(
+prometheus.CounterOpts{
+Name: "httpRequestsReceived_total",
+Help: "Number of HTTP requests received.",
+},
+[]string{"url"},
 )
-
-func init() {
-	prometheus.MustRegister(httpRequestsReceived)
-	prometheus.MustRegister(httpRequestsProcessed)
-	prometheus.MustRegister(httpRequestDuration)
-
-	indexTemplate = template.Must(template.New("/").Parse(html))
-}
+httpRequestsProcessed = prometheus.NewCounterVec(
+prometheus.CounterOpts{
+Name: "httpRequestsProcessed_total",
+Help: "Number of HTTP requests processed.",
+},
+[]string{"url", "status"},
+)
+httpRequestDuration = prometheus.NewSummaryVec(
+prometheus.SummaryOpts{
+Name: "http_response_duration",
+Help: "Duration of HTTP responses.",
+},
+[]string{"url", "status"},
+)
+)
 
 func NewPromWriter(w http.ResponseWriter) *promWriter {
 	return &promWriter{w: w, statusCode: 200}
@@ -135,15 +108,7 @@ func httpCounter(fn http.Handler) http.Handler {
 }
 
 func Run(port, host string) error {
-	log.Printf("backend.Run()")
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if len(host) == 0 {
-		host = hostname
-	}
+	log.Printf("authn.Run()")
 
 	// make a channel to listen on events,
 	// then launch the servers.
@@ -171,12 +136,6 @@ func Run(port, host string) error {
 		mux.Handle("/healthz", healthzHandler)
 		mux.Handle("/metrics", prometheus.Handler())
 
-		swaggerProxy, _ := serveSwagger.NewSwaggerProxy("/swagger-ui/")
-		mux.Handle("/swagger-ui/", swaggerProxy)
-
-		mux.Handle("/swagger/",
-			http.StripPrefix("/swagger/", Server))
-
 		apiMux := http.NewServeMux()
 		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			httpRequestsReceived.With(prometheus.Labels{"url": r.URL.Path}).Inc()
@@ -187,36 +146,32 @@ func Run(port, host string) error {
 				Handler  string
 			}
 
-			type echo struct {
-				Message string `json:"message"`
+			type authResponse struct {
+				JWT string `json:"jwt"`
+				UserID string `json:"userID"`
 			}
 
-			if strings.HasPrefix(r.URL.Path, "/api/v1/echo/") {
-				m := &echo{
-					Message: "hello, " + r.URL.Path[len("/api/v1/echo/"):],
+			if strings.HasPrefix(r.URL.Path, "/api/v1/authenticate") {
+				m := &authResponse{
+					JWT: "asldgk45cvmop8avppM",
+					UserID: "bob@example.com",
 				}
 				buf, err := json.Marshal(m)
 				if err != nil {
-					log.WithError(err).WithField("message", m.Message).
-						Error("while serializing echo response")
+					log.WithError(err).WithField("authResponse", m.UserID).
+						Error("while serializing auth response")
 					w.WriteHeader(http.StatusInternalServerError)
 				} else {
 					w.Header().Set("Content-Type", "application/json")
 					w.Write(buf)
 				}
 			} else {
-				err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/api/v1"})
-				if err != nil {
-					log.WithError(err).
-						WithField("template", indexTemplate.Name()).
-						WithField("path", r.URL.Path).
-						Error("Unable to execute template")
-				}
+				w.WriteHeader(http.StatusNotFound)
 			}
 
 			httpRequestsProcessed.With(prometheus.Labels{"url": r.URL.Path, "status": "200"}).Inc()
 		})
-		circuitBreaker, err := hystrix.NewHystrixHelper("grpc-backend")
+		circuitBreaker, err := hystrix.NewHystrixHelper("authn-api-backend")
 		if err != nil {
 			log.WithError(err).
 				Fatalf("Error creating circuitBreaker")
@@ -224,51 +179,11 @@ func Run(port, host string) error {
 		metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
 		mux.Handle("/api/v1/", circuitBreaker.Handler(apiMux))
 
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			httpRequestsReceived.With(prometheus.Labels{"url": "/"}).Inc()
-
-			status := http.StatusOK
-
-			type data struct {
-				Hostname string
-				URL      string
-				Handler  string
-			}
-
-			switch r.URL.Path {
-			case "/apis-explorer":
-				r.URL.Path = "/apiList.html"
-				htmlGen.Server.ServeHTTP(w, r)
-				break
-
-			case "/test":
-				err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/"})
-				if err != nil {
-					log.WithError(err).
-						WithField("template", indexTemplate.Name()).
-						WithField("path", r.URL.Path).
-						Error("Unable to execute template")
-					status = http.StatusServiceUnavailable
-				}
-				break
-
-			default:
-				if r.URL.Path == "/" {
-					r.URL.Path = "/index.html"
-				}
-
-				tmp.ServeHTTPWithIndexes(w, r)
-				//				status = http.StatusNotFound
-				//				http.NotFound(w, r)
-			}
-
-			httpRequestsProcessed.With(prometheus.Labels{"url": "/", "status": strconv.Itoa(status)}).Inc()
-		})
 
 		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
-		tracer = TracerFromHTTPRequest(NewTracer("playground"), "playground")
-		chain := alice.New(tracer, loggingWriter.HTTPLogrusLogger, httpCounter, canonical, VerifyIdentity).Then(mux)
+		tracer = backend.TracerFromInternalHTTPRequest(backend.NewTracer( "authn"), "authn")
+		chain := alice.New(tracer, loggingWriter.HTTPLogrusLogger, httpCounter, canonical).Then(mux)
 
 		log.WithField("port", port).Info("HTTP service listening.")
 		errc <- http.ListenAndServe(port, chain)
@@ -279,3 +194,4 @@ func Run(port, host string) error {
 
 	return nil
 }
+

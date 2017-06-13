@@ -1,4 +1,4 @@
-// Copyright © 2016 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2017 NAME HERE <EMAIL ADDRESS>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/mchudgins/playground/pkg/cmd/backend"
+	"github.com/mchudgins/playground/pkg/cmd/authn"
 	"github.com/spf13/cobra"
 )
 
-// backendCmd represents the backend command
-var backendCmd = &cobra.Command{
-	Use:   "backend",
+// authnCmd represents the authn command
+var authnCmd = &cobra.Command{
+	Use:   "authn",
 	Short: "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -41,7 +41,7 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			fmt.Println("error: %s", err)
 		}
-		err = backend.Run(port, host)
+		err = authn.Run(port, host)
 		if err != nil {
 			fmt.Println("error:  %s", err)
 		}
@@ -49,17 +49,18 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	RootCmd.AddCommand(backendCmd)
+	RootCmd.AddCommand(authnCmd)
 
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
-	// backendCmd.PersistentFlags().String("foo", "", "A help for foo")
+	// authnCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// backendCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	backendCmd.PersistentFlags().StringP("port", "p", ":8080", "http listen port")
-	backendCmd.PersistentFlags().StringP("host", "n", "", "Canonical Host Name (e.g., http://domain.com)")
+	// authnCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	authnCmd.PersistentFlags().StringP("port", "p", ":8080", "http listen port")
+	authnCmd.PersistentFlags().StringP("host", "n", "", "Canonical Host Name (e.g., http://domain.com)")
+
 }

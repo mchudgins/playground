@@ -6,7 +6,9 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/google/uuid"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	zipkin "github.com/openzipkin/zipkin-go-opentracing"
+	//zlog "github.com/opentracing/opentracing-go/log"
 )
 
 const (
@@ -15,7 +17,6 @@ const (
 
 var (
 	debugMode          = true
-	serviceName        = "playground"
 	serviceHostPort    = "localhost:8080"
 	zipkinHTTPEndpoint = "http://localhost:9411/api/v1/spans"
 )
@@ -27,7 +28,7 @@ func (logger traceLogger) Log(keyval ...interface{}) error {
 	return nil
 }
 
-func NewTracer() opentracing.Tracer {
+func NewTracer(serviceName string) opentracing.Tracer {
 	collector, err := zipkin.NewHTTPCollector(zipkinHTTPEndpoint,
 		zipkin.HTTPLogger(traceLogger{}),
 		zipkin.HTTPBatchSize(1))
@@ -38,8 +39,8 @@ func NewTracer() opentracing.Tracer {
 	tracer, err := zipkin.NewTracer(
 		zipkin.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
 		zipkin.WithLogger(traceLogger{}),
-		zipkin.DebugMode(true),
-		zipkin.ClientServerSameSpan(true),
+//		zipkin.DebugMode(true),
+//		zipkin.ClientServerSameSpan(true),
 	)
 
 	if err != nil {
@@ -75,9 +76,53 @@ func TracerFromHTTPRequest(tracer opentracing.Tracer, operationName string,
 
 			w.Header().Add(CORRID, corrID)
 			span.SetTag(CORRID, corrID)
+			ext.HTTPUrl.Set(span,req.URL.Path)
+//			span.SetTag(ext.HTTPUrl,req.URL.Path)
 
 			// store span in context
 			ctx = opentracing.ContextWithSpan(req.Context(), span)
+
+			// update request context to include our new span
+			req = req.WithContext(ctx)
+
+			// next middleware or actual request handler
+			next.ServeHTTP(w, req)
+
+		})
+	}
+}
+
+func TracerFromInternalHTTPRequest(tracer opentracing.Tracer, operationName string,
+) HandlerFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+
+			var serverSpan opentracing.Span
+			appSpecificOperationName := operationName
+			wireContext, err := opentracing.GlobalTracer().Extract(
+				opentracing.HTTPHeaders,
+				opentracing.HTTPHeadersCarrier(req.Header))
+			if err != nil {
+				log.WithError(err).Error("unable to extract wire context")
+			}
+
+			// Create the span referring to the RPC client if available.
+			// If wireContext == nil, a root span will be created.
+			serverSpan = opentracing.StartSpan(
+				appSpecificOperationName,
+				ext.RPCServerOption(wireContext))
+
+			defer serverSpan.Finish()
+
+			ext.HTTPUrl.Set(serverSpan,req.URL.Path)
+
+			/*
+			serverSpan.LogFields(
+				zlog.String(string(ext.HTTPUrl), req.URL.Path),
+			)
+			*/
+
+			ctx := opentracing.ContextWithSpan(req.Context(), serverSpan)
 
 			// update request context to include our new span
 			req = req.WithContext(ctx)

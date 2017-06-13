@@ -1,4 +1,4 @@
-//go:generate staticfiles -o hugo.go ../../../../../src/hugo/public
+//go:generate staticfiles -o hugo.go ../../../../../../src/hugo/public
 
 package tmp
 
