@@ -17,11 +17,10 @@ import (
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
 	"github.com/gorilla/handlers"
 	"github.com/justinas/alice"
-	"github.com/mchudgins/certMgr/pkg/healthz"
 	"github.com/mchudgins/go-service-helper/actuator"
 	gsh "github.com/mchudgins/go-service-helper/handlers"
 	"github.com/mchudgins/go-service-helper/hystrix"
-	"github.com/mchudgins/playground/pkg/cmd/backend"
+	"github.com/mchudgins/playground/pkg/healthz"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -181,7 +180,7 @@ func Run(port, host string) error {
 
 		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
-		tracer = backend.TracerFromInternalHTTPRequest(backend.NewTracer("authn"), "authn")
+		tracer = gsh.TracerFromInternalHTTPRequest(gsh.NewTracer("authn"), "authn")
 		chain := alice.New(tracer, gsh.HTTPLogrusLogger, httpCounter, canonical).Then(mux)
 
 		log.WithField("port", port).Info("HTTP service listening.")

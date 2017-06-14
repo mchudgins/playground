@@ -20,12 +20,12 @@ import (
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
 	"github.com/gorilla/handlers"
 	"github.com/justinas/alice"
-	"github.com/mchudgins/certMgr/pkg/healthz"
 	"github.com/mchudgins/go-service-helper/actuator"
 	gsh "github.com/mchudgins/go-service-helper/handlers"
 	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/mchudgins/go-service-helper/serveSwagger"
 	"github.com/mchudgins/playground/pkg/cmd/backend/htmlGen"
+	"github.com/mchudgins/playground/pkg/healthz"
 	"github.com/mchudgins/playground/tmp"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -267,7 +267,7 @@ func Run(port, host string) error {
 
 		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
-		tracer = TracerFromHTTPRequest(NewTracer("playground"), "playground")
+		tracer = gsh.TracerFromHTTPRequest(gsh.NewTracer("playground"), "playground")
 		chain := alice.New(tracer, gsh.HTTPLogrusLogger, httpCounter, canonical, VerifyIdentity).Then(mux)
 
 		log.WithField("port", port).Info("HTTP service listening.")
