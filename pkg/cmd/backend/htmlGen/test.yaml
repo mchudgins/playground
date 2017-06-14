@@ -35,7 +35,7 @@
   desc: Manage the API Explorer
   endpoints:
     - name: prod
-      swaggerURL: http://bigblue.lan:8080/swagger-ui/?url=http://bigblue.lan:8080/swagger/service.swagger.json
+      swaggerURL: http://developers.dstcorp.io:8080/swagger-ui/?url=http://developers.dstcorp.io:8080/swagger/service.swagger.json
       desc: Public API Explorer
     - name: localhost
       swaggerURL: http://localhost:8080/swagger-ui/?url=http://localhost:8080/swagger/service.swagger.json
