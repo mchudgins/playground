@@ -19,8 +19,8 @@ import (
 	"github.com/justinas/alice"
 	"github.com/mchudgins/certMgr/pkg/healthz"
 	"github.com/mchudgins/go-service-helper/actuator"
+	gsh "github.com/mchudgins/go-service-helper/handlers"
 	"github.com/mchudgins/go-service-helper/hystrix"
-	"github.com/mchudgins/go-service-helper/loggingWriter"
 	"github.com/mchudgins/playground/pkg/cmd/backend"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -32,27 +32,27 @@ type promWriter struct {
 }
 
 var (
-httpRequestsReceived = prometheus.NewCounterVec(
-prometheus.CounterOpts{
-Name: "httpRequestsReceived_total",
-Help: "Number of HTTP requests received.",
-},
-[]string{"url"},
-)
-httpRequestsProcessed = prometheus.NewCounterVec(
-prometheus.CounterOpts{
-Name: "httpRequestsProcessed_total",
-Help: "Number of HTTP requests processed.",
-},
-[]string{"url", "status"},
-)
-httpRequestDuration = prometheus.NewSummaryVec(
-prometheus.SummaryOpts{
-Name: "http_response_duration",
-Help: "Duration of HTTP responses.",
-},
-[]string{"url", "status"},
-)
+	httpRequestsReceived = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "httpRequestsReceived_total",
+			Help: "Number of HTTP requests received.",
+		},
+		[]string{"url"},
+	)
+	httpRequestsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "httpRequestsProcessed_total",
+			Help: "Number of HTTP requests processed.",
+		},
+		[]string{"url", "status"},
+	)
+	httpRequestDuration = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name: "http_response_duration",
+			Help: "Duration of HTTP responses.",
+		},
+		[]string{"url", "status"},
+	)
 )
 
 func NewPromWriter(w http.ResponseWriter) *promWriter {
@@ -147,13 +147,13 @@ func Run(port, host string) error {
 			}
 
 			type authResponse struct {
-				JWT string `json:"jwt"`
+				JWT    string `json:"jwt"`
 				UserID string `json:"userID"`
 			}
 
 			if strings.HasPrefix(r.URL.Path, "/api/v1/authenticate") {
 				m := &authResponse{
-					JWT: "asldgk45cvmop8avppM",
+					JWT:    "asldgk45cvmop8avppM",
 					UserID: "bob@example.com",
 				}
 				buf, err := json.Marshal(m)
@@ -179,11 +179,10 @@ func Run(port, host string) error {
 		metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
 		mux.Handle("/api/v1/", circuitBreaker.Handler(apiMux))
 
-
 		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
-		tracer = backend.TracerFromInternalHTTPRequest(backend.NewTracer( "authn"), "authn")
-		chain := alice.New(tracer, loggingWriter.HTTPLogrusLogger, httpCounter, canonical).Then(mux)
+		tracer = backend.TracerFromInternalHTTPRequest(backend.NewTracer("authn"), "authn")
+		chain := alice.New(tracer, gsh.HTTPLogrusLogger, httpCounter, canonical).Then(mux)
 
 		log.WithField("port", port).Info("HTTP service listening.")
 		errc <- http.ListenAndServe(port, chain)
@@ -194,4 +193,3 @@ func Run(port, host string) error {
 
 	return nil
 }
-
