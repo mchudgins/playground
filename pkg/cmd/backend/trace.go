@@ -39,8 +39,8 @@ func NewTracer(serviceName string) opentracing.Tracer {
 	tracer, err := zipkin.NewTracer(
 		zipkin.NewRecorder(collector, debugMode, serviceHostPort, serviceName),
 		zipkin.WithLogger(traceLogger{}),
-//		zipkin.DebugMode(true),
-//		zipkin.ClientServerSameSpan(true),
+		//		zipkin.DebugMode(true),
+		//		zipkin.ClientServerSameSpan(true),
 	)
 
 	if err != nil {
@@ -76,8 +76,8 @@ func TracerFromHTTPRequest(tracer opentracing.Tracer, operationName string,
 
 			w.Header().Add(CORRID, corrID)
 			span.SetTag(CORRID, corrID)
-			ext.HTTPUrl.Set(span,req.URL.Path)
-//			span.SetTag(ext.HTTPUrl,req.URL.Path)
+			ext.HTTPUrl.Set(span, req.URL.Path)
+			//			span.SetTag(ext.HTTPUrl,req.URL.Path)
 
 			// store span in context
 			ctx = opentracing.ContextWithSpan(req.Context(), span)
@@ -114,12 +114,12 @@ func TracerFromInternalHTTPRequest(tracer opentracing.Tracer, operationName stri
 
 			defer serverSpan.Finish()
 
-			ext.HTTPUrl.Set(serverSpan,req.URL.Path)
+			ext.HTTPUrl.Set(serverSpan, req.URL.Path)
 
 			/*
-			serverSpan.LogFields(
-				zlog.String(string(ext.HTTPUrl), req.URL.Path),
-			)
+				serverSpan.LogFields(
+					zlog.String(string(ext.HTTPUrl), req.URL.Path),
+				)
 			*/
 
 			ctx := opentracing.ContextWithSpan(req.Context(), serverSpan)

@@ -31,17 +31,17 @@ func VerifyIdentity(fn http.Handler) http.Handler {
 
 			resp, err := httpClient.Do(httpReq)
 			if err != nil {
-				log.WithError(err).WithField("idpEndpoint",idpEndpoint).
+				log.WithError(err).WithField("idpEndpoint", idpEndpoint).
 					Error("error contacting ipdEndpoint")
 			} else if resp.StatusCode != 200 {
-					log.WithField("StatusCode", resp.StatusCode).
-						Warn("not authenticated")
+				log.WithField("StatusCode", resp.StatusCode).
+					Warn("not authenticated")
 			}
 		} else {
 			log.Error("no span")
 		}
 		defer span.Finish()
 
-		fn.ServeHTTP(w,r)
+		fn.ServeHTTP(w, r)
 	})
 }

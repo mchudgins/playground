@@ -38,7 +38,7 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		err := backend.Run(":8080","localhost")
+		err := backend.Run(":8080", "localhost")
 		if err != nil {
 			fmt.Println("error:  %s", err)
 		}
