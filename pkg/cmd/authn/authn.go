@@ -9,9 +9,7 @@ import (
 	"syscall"
 
 	"encoding/json"
-	"strconv"
 	"strings"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
@@ -23,88 +21,6 @@ import (
 	"github.com/mchudgins/playground/pkg/healthz"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-type promWriter struct {
-	w             http.ResponseWriter
-	statusCode    int
-	contentLength int
-}
-
-var (
-	httpRequestsReceived = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "httpRequestsReceived_total",
-			Help: "Number of HTTP requests received.",
-		},
-		[]string{"url"},
-	)
-	httpRequestsProcessed = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "httpRequestsProcessed_total",
-			Help: "Number of HTTP requests processed.",
-		},
-		[]string{"url", "status"},
-	)
-	httpRequestDuration = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name: "http_response_duration",
-			Help: "Duration of HTTP responses.",
-		},
-		[]string{"url", "status"},
-	)
-)
-
-func NewPromWriter(w http.ResponseWriter) *promWriter {
-	return &promWriter{w: w, statusCode: 200}
-}
-
-func (l *promWriter) Header() http.Header {
-	return l.w.Header()
-}
-
-func (l *promWriter) Write(data []byte) (int, error) {
-	l.contentLength += len(data)
-	return l.w.Write(data)
-}
-
-func (l *promWriter) WriteHeader(status int) {
-	l.statusCode = status
-	l.w.WriteHeader(status)
-}
-
-func (l *promWriter) Length() int {
-	return l.contentLength
-}
-
-func (l *promWriter) StatusCode() int {
-
-	// if nobody set the status, but data has been written
-	// then all must be well.
-	if l.statusCode == 0 && l.contentLength > 0 {
-		return http.StatusOK
-	}
-
-	return l.statusCode
-}
-
-func httpCounter(fn http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		u := r.URL.Path
-		httpRequestsReceived.With(prometheus.Labels{"url": u}).Inc()
-		pw := NewPromWriter(w)
-		defer func() {
-			status := strconv.Itoa(pw.statusCode)
-			httpRequestsProcessed.With(prometheus.Labels{"url": u, "status": status}).Inc()
-			end := time.Now()
-			duration := end.Sub(start)
-			httpRequestDuration.With(prometheus.Labels{"url": u, "status": status}).Observe(float64(duration.Nanoseconds()))
-		}()
-
-		fn.ServeHTTP(pw, r)
-	})
-}
 
 func Run(port, host string) error {
 	log.Printf("authn.Run()")
@@ -137,7 +53,6 @@ func Run(port, host string) error {
 
 		apiMux := http.NewServeMux()
 		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			httpRequestsReceived.With(prometheus.Labels{"url": r.URL.Path}).Inc()
 
 			type data struct {
 				Hostname string
@@ -168,7 +83,6 @@ func Run(port, host string) error {
 				w.WriteHeader(http.StatusNotFound)
 			}
 
-			httpRequestsProcessed.With(prometheus.Labels{"url": r.URL.Path, "status": "200"}).Inc()
 		})
 		circuitBreaker, err := hystrix.NewHystrixHelper("authn-api-backend")
 		if err != nil {
@@ -181,7 +95,7 @@ func Run(port, host string) error {
 		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
 		tracer = gsh.TracerFromInternalHTTPRequest(gsh.NewTracer("authn"), "authn")
-		chain := alice.New(tracer, gsh.HTTPLogrusLogger, httpCounter, canonical).Then(mux)
+		chain := alice.New(tracer, gsh.HTTPMetricsCollector, gsh.HTTPLogrusLogger, canonical).Then(mux)
 
 		log.WithField("port", port).Info("HTTP service listening.")
 		errc <- http.ListenAndServe(port, chain)
