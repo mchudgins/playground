@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	log "github.com/Sirupsen/logrus"
+	gsh "github.com/mchudgins/go-service-helper/httpWriter"
 	"github.com/opentracing/opentracing-go"
 )
 
@@ -17,7 +18,7 @@ func VerifyIdentity(fn http.Handler) http.Handler {
 		ctx := r.Context()
 		span := opentracing.SpanFromContext(ctx)
 		if span != nil {
-			httpClient := &http.Client{}
+			httpClient := gsh.NewClient("authn")
 			httpReq, _ := http.NewRequest("GET", idpEndpoint, nil)
 
 			httpReq.WithContext(ctx)
