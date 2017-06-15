@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	log "github.com/Sirupsen/logrus"
-	gsh "github.com/mchudgins/go-service-helper/httpWriter"
+	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/opentracing/opentracing-go"
 )
 
@@ -18,7 +18,7 @@ func VerifyIdentity(fn http.Handler) http.Handler {
 		ctx := r.Context()
 		span := opentracing.SpanFromContext(ctx)
 		if span != nil {
-			httpClient := gsh.NewClient("authn")
+			httpClient := hystrix.NewClient("authn")
 			httpReq, _ := http.NewRequest("GET", idpEndpoint, nil)
 
 			httpReq.WithContext(ctx)
