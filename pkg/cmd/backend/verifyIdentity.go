@@ -1,47 +1,80 @@
 package backend
 
 import (
+	"context"
 	"net/http"
 
+	"strings"
+
 	log "github.com/Sirupsen/logrus"
-	"github.com/mchudgins/go-service-helper/hystrix"
-	"github.com/opentracing/opentracing-go"
+	"github.com/mchudgins/go-service-helper/zipkin"
 )
 
 const (
-	idpEndpoint string = "http://localhost:9090/api/v1/authenticate"
+	idpEndpoint   string = "http://localhost:9090/api/v1/authenticate"
+	loginEndpoint string = "http://localhost:9090/login"
+
+	authCookieName string = "Authentication"
+	authHeaderName string = "Authentication"
 )
+
+func getTokenFromRequest(r *http.Request) string {
+	// if the cookie is present
+	cookie, err := r.Cookie(authCookieName)
+	if cookie != nil && err == nil {
+		return cookie.Value
+	}
+
+	hdr := r.Header.Get(authHeaderName)
+	if len(hdr) > 0 {
+		str := strings.Split(hdr, " ")
+		if len(str) == 2 && strings.Compare("token", strings.ToLower(str[0])) == 0 {
+			return str[1]
+		}
+	}
+
+	return ""
+}
+
+func validateWithIDP(ctx context.Context, token string) string {
+	var resp *http.Response
+	var err error
+
+	httpClient := zipkin.NewClient("authn")
+
+	httpReq, _ := http.NewRequest("GET", idpEndpoint+"/"+token, nil)
+
+	resp, err = httpClient.Do(httpReq.WithContext(ctx))
+	if err != nil {
+		log.WithError(err).WithField("idpEndpoint", idpEndpoint).
+			Error("error contacting ipdEndpoint")
+	} else if resp.StatusCode != 200 {
+		log.WithField("StatusCode", resp.StatusCode).
+			Warn("not authenticated")
+	}
+
+	log.Info(resp.Body)
+	return "ok"
+}
 
 func VerifyIdentity(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var token string
 
+		verified := false
 		ctx := r.Context()
-		span := opentracing.SpanFromContext(ctx)
-		if span != nil {
-			httpClient := hystrix.NewClient("authn")
-			httpReq, _ := http.NewRequest("GET", idpEndpoint, nil)
-
-			httpReq.WithContext(ctx)
-
-			// Transmit the span's TraceContext as HTTP headers on our
-			// outbound request.
-			opentracing.GlobalTracer().Inject(
-				span.Context(),
-				opentracing.HTTPHeaders,
-				opentracing.HTTPHeadersCarrier(httpReq.Header))
-
-			resp, err := httpClient.Do(httpReq)
-			if err != nil {
-				log.WithError(err).WithField("idpEndpoint", idpEndpoint).
-					Error("error contacting ipdEndpoint")
-			} else if resp.StatusCode != 200 {
-				log.WithField("StatusCode", resp.StatusCode).
-					Warn("not authenticated")
-			}
-		} else {
-			log.Error("no span")
+		token = getTokenFromRequest(r)
+		log.WithField("token", token).Info("VerifyIdentity")
+		if len(token) != 0 {
+			uid := validateWithIDP(ctx, token)
+			verified = (len(uid) > 0)
 		}
-		defer span.Finish()
+
+		if !verified {
+			w.Header().Set("Location", loginEndpoint)
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			return
+		}
 
 		fn.ServeHTTP(w, r)
 	})
