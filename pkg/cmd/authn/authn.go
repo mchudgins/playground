@@ -86,6 +86,7 @@ func Run(port, host string) error {
 			}
 
 		})
+
 		circuitBreaker, err := hystrix.NewHystrixHelper("authn-api-backend")
 		if err != nil {
 			log.WithError(err).
