@@ -6,8 +6,12 @@ import (
 
 	"strings"
 
+	"encoding/json"
+
 	log "github.com/Sirupsen/logrus"
+	"github.com/mchudgins/go-service-helper/user"
 	"github.com/mchudgins/go-service-helper/zipkin"
+	"github.com/mchudgins/playground/pkg/cmd/authn"
 )
 
 const (
@@ -53,8 +57,17 @@ func validateWithIDP(ctx context.Context, token string) string {
 			Warn("not authenticated")
 	}
 
-	log.Info(resp.Body)
-	return "ok"
+	decoder := json.NewDecoder(resp.Body)
+	var authResponse authn.AuthResponse
+	err = decoder.Decode(&authResponse)
+	if err != nil {
+		log.WithError(err).Fatal("decoding authn response")
+		return ""
+	}
+
+	log.WithFields(log.Fields{"userID": authResponse.UserID, "jwt": authResponse.JWT}).Info("auth response")
+
+	return authResponse.UserID
 }
 
 func VerifyIdentity(fn http.Handler) http.Handler {
@@ -67,7 +80,11 @@ func VerifyIdentity(fn http.Handler) http.Handler {
 		log.WithField("token", token).Info("VerifyIdentity")
 		if len(token) != 0 {
 			uid := validateWithIDP(ctx, token)
-			verified = (len(uid) > 0)
+			if len(uid) > 0 {
+				r = r.WithContext(user.NewContext(ctx, uid))
+				r.Header.Set(user.USERID, uid)
+			}
+			verified = len(uid) > 0
 		}
 
 		if !verified {

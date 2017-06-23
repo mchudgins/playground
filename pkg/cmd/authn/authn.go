@@ -22,6 +22,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+type AuthResponse struct {
+	JWT    string `json:"jwt"`
+	UserID string `json:"userID"`
+}
+
 func Run(port, host string) error {
 	log.Printf("authn.Run()")
 
@@ -60,15 +65,10 @@ func Run(port, host string) error {
 				Handler  string
 			}
 
-			type authResponse struct {
-				JWT    string `json:"jwt"`
-				UserID string `json:"userID"`
-			}
-
 			const authURL string = "/api/v1/authenticate/"
 
 			if strings.HasPrefix(r.URL.Path, authURL) {
-				m := &authResponse{
+				m := &AuthResponse{
 					JWT:    "asldgk45cvmop8avppM",
 					UserID: r.URL.Path[len(authURL):],
 				}
