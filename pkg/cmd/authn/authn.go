@@ -65,10 +65,12 @@ func Run(port, host string) error {
 				UserID string `json:"userID"`
 			}
 
-			if strings.HasPrefix(r.URL.Path, "/api/v1/authenticate") {
+			const authURL string = "/api/v1/authenticate/"
+
+			if strings.HasPrefix(r.URL.Path, authURL) {
 				m := &authResponse{
 					JWT:    "asldgk45cvmop8avppM",
-					UserID: "bob@example.com",
+					UserID: r.URL.Path[len(authURL):],
 				}
 				buf, err := json.Marshal(m)
 				if err != nil {
