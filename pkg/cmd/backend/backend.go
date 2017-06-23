@@ -95,6 +95,12 @@ func Run(port, host string) error {
 		apiMux := http.NewServeMux()
 		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
+			log.Info("api called")
+			logger, ok := gsh.FromContext(r.Context())
+			if ok {
+				logger.WithField("url", r.URL.Path).Info("api called")
+			}
+
 			type data struct {
 				Hostname string
 				URL      string
