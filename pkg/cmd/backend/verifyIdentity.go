@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/dgrijalva/jwt-go"
+	gsh "github.com/mchudgins/go-service-helper/handlers"
 	"github.com/mchudgins/go-service-helper/user"
 	"github.com/mchudgins/go-service-helper/zipkin"
 	"github.com/mchudgins/playground/pkg/cmd/authn"
@@ -44,28 +46,79 @@ func validateWithIDP(ctx context.Context, token string) string {
 	var resp *http.Response
 	var err error
 
+	logger, _ := gsh.FromContext(ctx)
+
 	httpClient := zipkin.NewClient("authn")
 
 	httpReq, _ := http.NewRequest("GET", idpEndpoint+"/"+token, nil)
 
 	resp, err = httpClient.Do(httpReq.WithContext(ctx))
 	if err != nil {
-		log.WithError(err).WithField("idpEndpoint", idpEndpoint).
+		logger.WithError(err).WithField("idpEndpoint", idpEndpoint).
 			Error("error contacting ipdEndpoint")
+		return ""
 	} else if resp.StatusCode != 200 {
-		log.WithField("StatusCode", resp.StatusCode).
+		logger.WithField("StatusCode", resp.StatusCode).
 			Warn("not authenticated")
+		return ""
 	}
 
 	decoder := json.NewDecoder(resp.Body)
 	var authResponse authn.AuthResponse
 	err = decoder.Decode(&authResponse)
 	if err != nil {
-		log.WithError(err).Fatal("decoding authn response")
+		logger.WithError(err).Fatal("decoding authn response")
 		return ""
 	}
 
-	log.WithFields(log.Fields{"userID": authResponse.UserID, "jwt": authResponse.JWT}).Info("auth response")
+	jwtToken, err := jwt.ParseWithClaims(authResponse.JWT, &jwt.StandardClaims{}, func(t *jwt.Token) (interface{}, error) {
+		return []byte("hello, world"), nil
+	})
+	if err != nil {
+		logger.WithError(err).Warn("invalid JWT")
+		return ""
+	}
+
+	claims := jwtToken.Claims.(*jwt.StandardClaims)
+
+	/*
+		w, err := jws.ParseJWT([]byte(authResponse.JWT))
+		if err != nil {
+			log.WithError(err).Warn("unable to parse token")
+			return ""
+		}
+
+		x, ok := w.(*jws.JWS)
+
+
+		v := &jwt.Validator{}
+		v.SetIssuer("authn.dstcorp.net")
+		v.SetAudience("*.dstcorp.net")
+		err = w.Validate([]byte("hello, world"), jws.GetSigningMethod("HS256"), v)
+		if err != nil {
+			log.WithError(err).Warn("invalid JWT Token")
+			return ""
+		}
+		claims := w.Claims()
+	*/
+
+	subject := claims.Subject
+	if len(subject) == 0 {
+		logger.Warn("no subject found in JWT claims")
+		return ""
+	}
+
+	alg := jwtToken.Header["alg"].(string)
+	if strings.Compare(alg, jwt.SigningMethodHS256.Name) != 0 {
+		logger.WithFields(log.Fields{"alg": jwtToken.Header["alg"],
+			"name": jwt.SigningMethodHS256.Name,
+		}).Info()
+		return ""
+	}
+
+	logger.WithFields(log.Fields{"userID": authResponse.UserID,
+		"jwt":         authResponse.JWT,
+		"jwt.Subject": subject}).Info("auth response")
 
 	return authResponse.UserID
 }
@@ -76,8 +129,9 @@ func VerifyIdentity(fn http.Handler) http.Handler {
 
 		verified := false
 		ctx := r.Context()
+		logger, _ := gsh.FromContext(ctx)
 		token = getTokenFromRequest(r)
-		log.WithField("token", token).Info("VerifyIdentity")
+		logger.WithField("token", token).Info("VerifyIdentity")
 		if len(token) != 0 {
 			uid := validateWithIDP(ctx, token)
 			if len(uid) > 0 {

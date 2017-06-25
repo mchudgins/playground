@@ -95,7 +95,6 @@ func Run(port, host string) error {
 		apiMux := http.NewServeMux()
 		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
-			log.Info("api called")
 			logger, ok := gsh.FromContext(r.Context())
 			if ok {
 				logger.WithField("url", r.URL.Path).Info("api called")
@@ -141,7 +140,8 @@ func Run(port, host string) error {
 				Fatalf("Error creating circuitBreaker")
 		}
 		metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
-		mux.Handle("/api/v1/", circuitBreaker.Handler(apiMux))
+
+		mux.Handle("/api/v1/", alice.New(circuitBreaker.Handler, VerifyIdentity).Then(apiMux))
 
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -182,7 +182,11 @@ func Run(port, host string) error {
 		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
 		tracer = gsh.TracerFromHTTPRequest(gsh.NewTracer("playground"), "playground")
-		chain := alice.New(tracer, gsh.HTTPMetricsCollector, gsh.HTTPLogrusLogger, canonical, VerifyIdentity).Then(mux)
+		chain := alice.New(tracer,
+			gsh.HTTPMetricsCollector,
+			gsh.HTTPLogrusLogger,
+			canonical,
+			handlers.CompressHandler).Then(mux)
 
 		log.WithField("port", port).Info("HTTP service listening.")
 		errc <- http.ListenAndServe(port, chain)
