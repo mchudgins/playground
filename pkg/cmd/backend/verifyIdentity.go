@@ -21,7 +21,7 @@ const (
 	loginEndpoint string = "http://localhost:9090/login"
 
 	authCookieName string = "Authentication"
-	authHeaderName string = "Authentication"
+	authHeaderName string = "Authorization"
 )
 
 func getTokenFromRequest(r *http.Request) string {
