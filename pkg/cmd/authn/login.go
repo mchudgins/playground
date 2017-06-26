@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	gsh "github.com/mchudgins/go-service-helper/handlers"
 )
 
@@ -40,11 +39,11 @@ const (
 )
 
 var (
-	indexTemplate *template.Template
+	loginTemplate *template.Template
 )
 
 func init() {
-	indexTemplate = template.Must(template.New("login").Parse(html))
+	loginTemplate = template.Must(template.New("login").Parse(html))
 }
 
 func loginGetHandler(w http.ResponseWriter, r *http.Request) {
@@ -59,10 +58,10 @@ func loginGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=86400") // one day
-	err := indexTemplate.Execute(w, data{Hostname: r.Host, URL: r.URL.Path, Handler: "login"})
+	err := loginTemplate.Execute(w, data{Hostname: r.Host, URL: r.URL.Path, Handler: "login"})
 	if err != nil {
 		logger.WithError(err).
-			WithField("template", indexTemplate.Name()).
+			WithField("template", loginTemplate.Name()).
 			WithField("path", r.URL.Path).
 			Error("Unable to execute template")
 	}
@@ -77,12 +76,6 @@ func loginPostHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.WithError(err).WithField("url", r.URL.Path).Warn("error while parsing login form")
 	}
-
-	fields := log.Fields{}
-	for key, value := range r.PostForm {
-		fields[key] = value[0]
-	}
-	logger.WithFields(fields).Info("posted data")
 
 	cookieToken := &http.Cookie{
 		Name:     "Authentication",
