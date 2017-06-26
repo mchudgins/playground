@@ -54,7 +54,6 @@ func loginGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger, _ := gsh.FromContext(r.Context())
-	logger.Info("loginGetHandler")
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "max-age=86400") // one day
@@ -70,7 +69,6 @@ func loginGetHandler(w http.ResponseWriter, r *http.Request) {
 func loginPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	logger, _ := gsh.FromContext(r.Context())
-	logger.Info("loginPostHandler")
 
 	err := r.ParseForm()
 	if err != nil {
