@@ -118,6 +118,8 @@ func validateWithIDP(ctx context.Context, token string) string {
 
 	logger.WithFields(log.Fields{"userID": authResponse.UserID,
 		"jwt":         authResponse.JWT,
+		"alg":         jwtToken.Header["alg"],
+		"kid":         jwtToken.Header["kid"],
 		"jwt.Subject": subject}).Info("auth response")
 
 	return authResponse.UserID

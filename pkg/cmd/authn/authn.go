@@ -46,7 +46,7 @@ func Run(port, host string) error {
 
 	// http server
 	go func() {
-		mux := mux.NewRouter() //actuator.NewActuatorMux("")
+		rootMux := mux.NewRouter() //actuator.NewActuatorMux("")
 
 		hc, err := healthz.NewConfig()
 		healthzHandler, err := healthz.Handler(hc)
@@ -54,58 +54,11 @@ func Run(port, host string) error {
 			log.Panic(err)
 		}
 
-		mux.Handle("/debug/vars", expvar.Handler())
-		mux.Handle("/healthz", healthzHandler)
-		mux.Handle("/metrics", prometheus.Handler())
-		mux.HandleFunc("/login", loginGetHandler).Methods("GET")
-		mux.HandleFunc("/login", loginPostHandler).Methods("POST")
-
-		apiMux := http.NewServeMux()
-		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-			type data struct {
-				Hostname string
-				URL      string
-				Handler  string
-			}
-
-			const authURL string = "/api/v1/authenticate/"
-
-			logger, _ := gsh.FromContext(r.Context())
-
-			if strings.HasPrefix(r.URL.Path, authURL) {
-				uid := r.URL.Path[len(authURL):]
-				now := time.Now()
-				token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
-					Subject:   uid,
-					ExpiresAt: now.Add(time.Duration(5) * time.Minute).Unix(),
-					Audience:  "*.dstcorp.net",
-					Issuer:    "authn.dstcorp.net",
-					IssuedAt:  now.Unix(),
-					NotBefore: now.Add(0 - time.Duration(30)*time.Second).Unix(),
-				}).SignedString([]byte("hello, world"))
-				if err != nil {
-					logger.WithError(err).Fatal("signing token")
-				}
-
-				m := &AuthResponse{
-					JWT:    token,
-					UserID: uid,
-				}
-				buf, err := json.Marshal(m)
-				if err != nil {
-					logger.WithError(err).WithField("authResponse", m.UserID).
-						Error("while serializing auth response")
-					w.WriteHeader(http.StatusInternalServerError)
-				} else {
-					w.Header().Set("Content-Type", "application/json")
-					w.Write(buf)
-				}
-			} else {
-				w.WriteHeader(http.StatusNotFound)
-			}
-
-		})
+		rootMux.Handle("/debug/vars", expvar.Handler())
+		rootMux.Handle("/healthz", healthzHandler)
+		rootMux.Handle("/metrics", prometheus.Handler())
+		rootMux.HandleFunc("/login", loginGetHandler).Methods("GET")
+		rootMux.HandleFunc("/login", loginPostHandler).Methods("POST")
 
 		circuitBreaker, err := hystrix.NewHystrixHelper("authn-api-backend")
 		if err != nil {
@@ -113,7 +66,7 @@ func Run(port, host string) error {
 				Fatalf("Error creating circuitBreaker")
 		}
 		metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
-		mux.Handle("/api/v1/", circuitBreaker.Handler(apiMux))
+		rootMux.PathPrefix("/api/v1/").Handler(circuitBreaker.Handler(http.HandlerFunc(apiHandler)))
 
 		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
@@ -122,7 +75,7 @@ func Run(port, host string) error {
 			gsh.HTTPMetricsCollector,
 			gsh.HTTPLogrusLogger,
 			handlers.CompressHandler,
-			canonical).Then(mux)
+			canonical).Then(rootMux)
 
 		log.WithField("port", port).Info("HTTP service listening.")
 		errc <- http.ListenAndServe(port, chain)
@@ -132,4 +85,58 @@ func Run(port, host string) error {
 	log.Infof("exit: %s", <-errc)
 
 	return nil
+}
+
+func apiHandler(w http.ResponseWriter, r *http.Request) {
+
+	type data struct {
+		Hostname string
+		URL      string
+		Handler  string
+	}
+
+	const authURL string = "/api/v1/authenticate/"
+
+	logger, _ := gsh.FromContext(r.Context())
+
+	if strings.HasPrefix(r.URL.Path, authURL) {
+		uid := r.URL.Path[len(authURL):]
+		now := time.Now()
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.StandardClaims{
+			Subject:   uid,
+			ExpiresAt: now.Add(time.Duration(5) * time.Minute).Unix(),
+			Audience:  "*.dstcorp.net",
+			Issuer:    "authn.dstcorp.net",
+			IssuedAt:  now.Unix(),
+			NotBefore: now.Add(0 - time.Duration(30)*time.Second).Unix(),
+		})
+
+		// load the certificate details into the jwt Header
+		// see: https://tools.ietf.org/html/rfc7515#section-4.1.5
+		token.Header["kid"] = "xxxxxx"
+		token.Header["x5u"] = "https://authn.dstcorp.net/certificates/xxxxxx"
+
+		t, err := token.SignedString([]byte("hello, world"))
+		if err != nil {
+			logger.WithError(err).Fatal("signing token")
+		}
+
+		m := &AuthResponse{
+			JWT:    t,
+			UserID: uid,
+		}
+		buf, err := json.Marshal(m)
+		if err != nil {
+			logger.WithError(err).WithField("authResponse", m.UserID).
+				Error("while serializing auth response")
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(buf)
+		}
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+	}
+
 }
