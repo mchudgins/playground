@@ -41,6 +41,21 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			fmt.Println("error: %s", err)
 		}
+
+		/*
+			strarray, err := cmd.PersistentFlags().GetStringArray("define")
+			if err != nil {
+				fmt.Println("error: %s", err)
+			}
+			for _, val := range strarray {
+				fmt.Println("array element: %s", val)
+			}
+
+			if cmd.PersistentFlags().Changed("host") {
+				fmt.Println("--host present")
+			}
+		*/
+
 		err = backend.Run(port, host)
 		if err != nil {
 			fmt.Println("error:  %s", err)
@@ -62,4 +77,5 @@ func init() {
 	// backendCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	backendCmd.PersistentFlags().StringP("port", "p", ":8080", "http listen port")
 	backendCmd.PersistentFlags().StringP("host", "n", "", "Canonical Host Name (e.g., http://domain.com)")
+	backendCmd.PersistentFlags().StringArrayP("define", "D", []string{}, "configuration overrides")
 }
