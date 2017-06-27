@@ -117,7 +117,9 @@ func validateWithIDP(ctx context.Context, token string) string {
 	}
 
 	if strings.Compare(claims.Issuer, "authn.dstcorp.net") != 0 {
-		log.Warn("unexpected issuer")
+		logger.WithFields(log.Fields{"issuer": claims.Issuer, "expectedIssuer": "authn.dstcorp.net"}).
+			Warn("unexpected issuer")
+		return ""
 	}
 
 	logger.WithFields(log.Fields{"userID": authResponse.UserID,
