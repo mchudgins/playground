@@ -16,9 +16,11 @@ package cmd
 import (
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	//log "github.com/Sirupsen/logrus"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	log "go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	yaml2 "gopkg.in/yaml.v2"
 )
 
@@ -44,6 +46,15 @@ var (
 	defaultConfig        = config{Authn: defaultAuthnConfig, Backend: defaultBackendConfig, LogLevel: "Debug"}
 )
 
+func GetLogger() *log.Logger {
+	//config := log.NewProductionConfig()
+	config := log.NewDevelopmentConfig()
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	logger, _ := config.Build()
+
+	return logger.With(log.String("x-request-id", "01234"))
+}
+
 // testCmd represents the test command
 var testCmd = &cobra.Command{
 	Use:   "test",
@@ -55,23 +66,32 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		//		logger, _ := log.NewProduction()
+		logger := GetLogger()
+		defer logger.Sync()
 
 		strarray, err := cmd.PersistentFlags().GetStringArray("define")
 		if err != nil {
-			log.WithError(err).Fatal("unable to GetStringArray")
+			logger.Fatal("unable to GetStringArray", log.Error(err))
+			//			log.WithError(err).Fatal("unable to GetStringArray")
 			panic(err)
 		}
 		for _, val := range strarray {
-			log.WithField("element", val).Info()
+			//log.WithField("element", val).Info()
+			logger.Info("", log.String("element", val))
 			amendStruct(val)
 		}
 
 		y, err := yaml.Marshal(defaultConfig)
 		if err != nil {
-			log.WithError(err).Fatal("while marshaling to yaml")
+			//log.WithError(err).Fatal("while marshaling to yaml")
+			logger.Fatal("while marshaling to yaml", log.Error(err))
 			panic(err)
 		}
-		log.Info("\n" + string(y))
+		logger.Info("\n" + string(y))
+		//log.Info("\n" + string(y))
+		logger.Info("pre-exit")
+		logger.Info("exit", log.String("status", "ok"))
 	},
 }
 
@@ -89,20 +109,28 @@ func buildYAMLKey(key string) (string, int) {
 }
 
 func amendStruct(val string) {
+	//logger, _ := log.NewProduction()
+	logger := GetLogger()
+	defer logger.Sync()
+
 	elements := strings.Split(val, "=")
 	for i, el := range elements {
-		log.WithField("i", i).WithField("val", el).Info()
+		//log.WithField("i", i).WithField("val", el).Info()
+		logger.Info("", log.Int("i", i), log.String("val", el))
 	}
 
 	//y := elements[0] + ": " + elements[1]
 	y, _ := buildYAMLKey(elements[0])
 	y += " " + elements[1]
 
-	log.WithField("y", y).Info("yaml.Unmarshal")
+	//log.WithField("y", y).Info("yaml.Unmarshal")
+	logger.Info("yaml.Unmarshal", log.String("y", y))
+
 	//err = yaml.Unmarshal([]byte(y), &defaultConfig)
 	err := yaml2.Unmarshal([]byte(y), &defaultConfig)
 	if err != nil {
-		log.WithError(err).Infof("yaml.Unmarshal('%s')", y)
+		logger.Fatal("Unmarshal", log.Error(err), log.String("y", y))
+		//log.WithError(err).Infof("yaml.Unmarshal('%s')", y)
 	}
 }
 
@@ -119,4 +147,5 @@ func init() {
 	// is called directly, e.g.:
 	// testCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	testCmd.PersistentFlags().StringArrayP("define", "D", []string{}, "configuration overrides")
+	testCmd.PersistentFlags().StringP("config", "c", "app.yaml", "configuration source, e.g., https://config/....")
 }
