@@ -52,7 +52,7 @@ func GetLogger() *log.Logger {
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	logger, _ := config.Build()
 
-	return logger.With(log.String("x-request-id", "01234"))
+	return logger //.With(log.String("x-request-id", "01234"))
 }
 
 // testCmd represents the test command
