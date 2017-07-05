@@ -21,6 +21,7 @@ import (
 	"github.com/mchudgins/playground/pkg/cmd/backend"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	log "go.uber.org/zap"
 )
 
 var cfgFile string
@@ -35,6 +36,20 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		logger := GetLogger()
+		defer logger.Sync()
+
+		cfg, err := cmd.Flags().GetString("config")
+		if err != nil {
+			logger.Warn("GetString", log.Error(err), log.String("flagName", "config"))
+		}
+		logger.Info("Root PreRun",
+			log.String("cfgFile", cfgFile),
+			log.String("from flags", cfg))
+
+		return nil
+	},
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
@@ -62,9 +77,6 @@ func init() {
 	// will be global for your application.
 
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.playground.yaml)")
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
