@@ -1,0 +1,40 @@
+project_name: playground
+release:
+  github:
+    owner: mchudgins
+    name: playground
+brew:
+  github: {}
+  install: bin.install "playground"
+builds:
+- goos:
+  - linux
+  - darwin
+  - windows
+  goarch:
+  - amd64
+  - arm64
+  goarm:
+  - "6"
+  main: .
+  ldflags: -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+  binary: playground
+  hooks: {}
+archive:
+  format: tar.gz
+  name_template: '{{ .Binary }}_{{.Version}}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{
+    .Arm }}{{ end }}'
+  files:
+  - licence*
+  - LICENCE*
+  - license*
+  - LICENSE*
+  - readme*
+  - README*
+  - changelog*
+  - CHANGELOG*
+fpm: {}
+snapshot:
+  name_template: SNAPSHOT-{{ .Commit }}
+build:
+  hooks: {}
