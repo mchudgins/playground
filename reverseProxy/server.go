@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 
+	"time"
+
 	afex "github.com/afex/hystrix-go/hystrix"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -30,6 +32,7 @@ type Proxy struct {
 	commandName string
 	logger      *zap.Logger
 	defaultCSP  string
+	target      url.URL
 }
 
 func NewProxy(target *url.URL, defaultCSP string, logger *zap.Logger) (*Proxy, error) {
@@ -45,6 +48,7 @@ func NewProxy(target *url.URL, defaultCSP string, logger *zap.Logger) (*Proxy, e
 
 	return &Proxy{
 		address:      ":7070",
+		target:       *target,
 		commandName:  target.Host,
 		defaultCSP:   defaultCSP,
 		ReverseProxy: httputil.ReverseProxy{Director: director},
@@ -124,7 +128,7 @@ func (p *Proxy) Run() error {
 		rootMux.Handle("/metrics", prometheus.Handler())
 		rootMux.Handle("/cspReport", NewCSPReporter()).Methods("POST")
 
-		canonical := handlers.CanonicalHost("localhost", http.StatusPermanentRedirect)
+		canonical := handlers.CanonicalHost("http://fubar.local.dstcorp.io:7070", http.StatusPermanentRedirect)
 		var tracer func(http.Handler) http.Handler
 		tracer = gsh.TracerFromHTTPRequest(gsh.NewTracer(p.commandName), "proxy")
 
@@ -133,10 +137,17 @@ func (p *Proxy) Run() error {
 		chain := alice.New(tracer,
 			gsh.HTTPMetricsCollector,
 			gsh.HTTPLogrusLogger,
-			canonical,
-			handlers.CompressHandler)
+			canonical)
+		// no need for the compressHandler
 
-		errc <- http.ListenAndServe(p.address, chain.Then(rootMux))
+		//errc <- http.ListenAndServe(p.address, chain.Then(rootMux))
+		tls := &http.Server{
+			Addr:              p.address,
+			Handler:           chain.Then(rootMux),
+			ReadTimeout:       time.Duration(5) * time.Second,
+			ReadHeaderTimeout: time.Duration(2) * time.Second,
+		}
+		errc <- tls.ListenAndServeTLS("../certMgr/cert.pem", "../certMgr/key.pem")
 	}()
 
 	// start the hystrix stream provider
@@ -147,7 +158,7 @@ func (p *Proxy) Run() error {
 	}()
 
 	// wait for somthin'
-	p.logger.Info("Reverse Proxy Serving", zap.String("address", p.address))
+	p.logger.Info("Reverse Proxy Serving", zap.String("local address", p.address), zap.String("target", p.target.String()))
 	p.logger.Info("exit", zap.Error(<-errc))
 
 	return nil

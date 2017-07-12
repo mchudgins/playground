@@ -30,7 +30,7 @@ import (
 
 // reverse-proxyCmd represents the reverse-proxy command
 var reverseProxyCmd = &cobra.Command{
-	Use:     "reverse-proxy",
+	Use:     "reverse-proxy <proxy target>",
 	Aliases: []string{"rp", "reverse", "proxy"},
 	Short:   "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
@@ -44,7 +44,12 @@ to quickly create a Cobra application.`,
 		logger := GetLogger()
 		defer logger.Sync()
 
-		target, err := url.Parse("http://localhost:8080/")
+		if len(args) != 1 {
+			cmd.Usage()
+			return
+		}
+
+		target, err := url.Parse(args[0])
 		if err != nil {
 			logger.Fatal("invalid URL", log.Error(err), log.String("URL", ""))
 		}
