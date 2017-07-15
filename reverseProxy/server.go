@@ -147,6 +147,7 @@ func (p *Proxy) Run() error {
 			ReadTimeout:       time.Duration(5) * time.Second,
 			ReadHeaderTimeout: time.Duration(2) * time.Second,
 		}
+
 		errc <- tls.ListenAndServeTLS("../certMgr/cert.pem", "../certMgr/key.pem")
 	}()
 
