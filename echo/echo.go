@@ -1,34 +1,26 @@
 package echo
 
 import (
-	"expvar"
-	"fmt"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
-	afex "github.com/afex/hystrix-go/hystrix"
 	rpc "github.com/dstcorp/rpc-golang/service"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/justinas/alice"
-	"github.com/mchudgins/go-service-helper/correlationID"
-	gsh "github.com/mchudgins/go-service-helper/handlers"
-	"github.com/mchudgins/playground/pkg/healthz"
-	"github.com/mwitkow/go-grpc-middleware"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/log"
+	"github.com/mchudgins/go-service-helper/server"
 	"go.uber.org/zap"
-	xcontext "golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
+
+/*
+type sourcetype int
+
+const (
+	interrupt sourcetype = iota
+	httpServer
+	metricsServer
+	rpcServer
+)
+
+type errorSource struct {
+	source sourcetype
+	err    error
+}
 
 type echoService struct {
 	Insecure    bool
@@ -43,8 +35,12 @@ func grpcEndpointLog(logger *zap.Logger, s string) grpc.UnaryServerInterceptor {
 		req interface{},
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler) (interface{}, error) {
-		//			log.Debug("grpcEndpointLog+", zap.String("", s))
-		//			defer log.Debug("grpcEndpointLog-", zap.String("", s))
+		logger.Info("grpcEndpointLog+", zap.String("", s))
+		defer func() {
+			logger.Info("grpcEndpointLog-", zap.String("", s))
+			logger.Sync()
+		}()
+
 		return handler(ctx, req)
 	}
 }
@@ -94,13 +90,16 @@ func Run(logger *zap.Logger, port, certFile, keyFile string) {
 	// make a channel to listen on events,
 	// then launch the servers.
 
-	errc := make(chan error)
+	errc := make(chan errorSource)
 
 	// interrupt handler
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		errc <- fmt.Errorf("%s", <-c)
+		errc <- errorSource{
+			source: interrupt,
+			err:    fmt.Errorf("%s", <-c),
+		}
 	}()
 
 	// gRPC server
@@ -108,7 +107,10 @@ func Run(logger *zap.Logger, port, certFile, keyFile string) {
 
 		lis, err := net.Listen("tcp", p.gRPCAddress)
 		if err != nil {
-			errc <- err
+			errc <- errorSource{
+				err:    err,
+				source: rpcServer,
+			}
 			return
 		}
 
@@ -144,7 +146,10 @@ func Run(logger *zap.Logger, port, certFile, keyFile string) {
 		} else {
 			log.Infof("gRPC service listening on %s", p.gRPCAddress)
 		}
-		errc <- s.Serve(lis)
+		errc <- errorSource{
+			err:    s.Serve(lis),
+			source: rpcServer,
+		}
 	}()
 
 	// health & metrics via https
@@ -183,19 +188,44 @@ func Run(logger *zap.Logger, port, certFile, keyFile string) {
 			ReadHeaderTimeout: time.Duration(2) * time.Second,
 		}
 
-		errc <- tls.ListenAndServeTLS(certFile, keyFile)
+		errc <- errorSource{
+			err:    tls.ListenAndServeTLS(certFile, keyFile),
+			source: httpServer,
+		}
 	}()
 
 	// start the hystrix stream provider
 	go func() {
 		hystrixStreamHandler := afex.NewStreamHandler()
 		hystrixStreamHandler.Start()
-		errc <- http.ListenAndServe(":7071", hystrixStreamHandler)
+		errc <- errorSource{
+			err:    http.ListenAndServe(":7071", hystrixStreamHandler),
+			source: metricsServer,
+		}
 	}()
 
 	// wait for somthin'
 	p.logger.Info("Echo Server",
 		zap.String("local address", p.address),
 		zap.String("gRPC address", p.gRPCAddress))
-	p.logger.Info("exit", zap.Error(<-errc))
+	rc := <-errc
+	p.logger.Info("exit", zap.Error(rc.err), zap.Int("source", int(rc.source)))
+	if rc.source == interrupt {
+	}
+}
+*/
+
+func Run(logger *zap.Logger, port, certFile, keyFile string) {
+	server.Run(
+		server.WithLogger(logger),
+		server.WithCertificate(certFile, keyFile),
+		server.WithRPCServer(func(s *grpc.Server) error {
+			echoServer, err := NewServer(logger)
+			if err != nil {
+				logger.Panic("while creating new EchoServer", zap.Error(err))
+			}
+			rpc.RegisterEchoServiceServer(s, echoServer)
+			return nil
+		}),
+	)
 }
