@@ -21,6 +21,8 @@
 package cmd
 
 import (
+	"context"
+
 	"github.com/mchudgins/playground/echo"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +45,7 @@ to quickly create a Cobra application.`,
 		certFile, _ := cmd.Flags().GetString("cert")
 		keyFile, _ := cmd.Flags().GetString("key")
 
-		echo.Run(logger, port, certFile, keyFile)
+		echo.Run(context.Background(), logger, port, certFile, keyFile)
 	},
 }
 
