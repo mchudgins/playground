@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/mchudgins/playground/pkg/cmd/backend"
@@ -56,7 +57,7 @@ to quickly create a Cobra application.`,
 			}
 		*/
 
-		err = backend.Run(port, host)
+		err = backend.Run(context.Background(), port, host)
 		if err != nil {
 			fmt.Println("error:  %s", err)
 		}

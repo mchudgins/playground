@@ -3,30 +3,25 @@ package backend
 //go:generate go run ../../../main.go htmlGen ../../../cmd/htmlGen/test.yaml
 
 import (
-	"expvar"
-	"fmt"
+	"context"
+	"encoding/json"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
+	"strings"
 	"text/template"
 
-	"encoding/json"
-	"strings"
-
 	log "github.com/Sirupsen/logrus"
-	afex "github.com/afex/hystrix-go/hystrix"
 	"github.com/afex/hystrix-go/hystrix/metric_collector"
-	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
-	"github.com/mchudgins/go-service-helper/actuator"
 	gsh "github.com/mchudgins/go-service-helper/handlers"
 	"github.com/mchudgins/go-service-helper/hystrix"
 	"github.com/mchudgins/go-service-helper/serveSwagger"
+	"github.com/mchudgins/go-service-helper/server"
 	"github.com/mchudgins/playground/pkg/cmd/backend/htmlGen"
-	"github.com/mchudgins/playground/pkg/healthz"
 	"github.com/mchudgins/playground/tmp"
-	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -49,158 +44,121 @@ func init() {
 	indexTemplate = template.Must(template.New("/").Parse(html))
 }
 
-func Run(port, host string) error {
-	log.Printf("backend.Run()")
+func Run(ctx context.Context, port, host string) error {
+	logger := GetLogger()
+	defer logger.Sync()
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Fatal(err)
-	}
-	if len(host) == 0 {
-		host = hostname
+		logger.Panic("unable to obtain hostname", zap.Error(err))
 	}
 
-	// make a channel to listen on events,
-	// then launch the servers.
+	mux := mux.NewRouter()
+	swaggerProxy, _ := serveSwagger.NewSwaggerProxy("/swagger-ui/")
+	mux.Handle("/swagger-ui/", swaggerProxy)
 
-	errc := make(chan error)
+	mux.Handle("/swagger/",
+		http.StripPrefix("/swagger/", Server))
 
-	// interrupt handler
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		errc <- fmt.Errorf("%s", <-c)
-	}()
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
-	// http server
-	go func() {
-		mux := actuator.NewActuatorMux("")
-
-		hc, err := healthz.NewConfig()
-		healthzHandler, err := healthz.Handler(hc)
-		if err != nil {
-			log.Panic(err)
+		logger, ok := gsh.FromContext(r.Context())
+		if ok {
+			logger.WithField("url", r.URL.Path).Info("api called")
 		}
 
-		mux.Handle("/debug/vars", expvar.Handler())
-		mux.Handle("/healthz", healthzHandler)
-		mux.Handle("/metrics", prometheus.Handler())
+		type data struct {
+			Hostname string
+			URL      string
+			Handler  string
+		}
 
-		swaggerProxy, _ := serveSwagger.NewSwaggerProxy("/swagger-ui/")
-		mux.Handle("/swagger-ui/", swaggerProxy)
+		type echo struct {
+			Message string `json:"message"`
+		}
 
-		mux.Handle("/swagger/",
-			http.StripPrefix("/swagger/", Server))
-
-		apiMux := http.NewServeMux()
-		apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-
-			logger, ok := gsh.FromContext(r.Context())
-			if ok {
-				logger.WithField("url", r.URL.Path).Info("api called")
+		if strings.HasPrefix(r.URL.Path, "/api/v1/echo/") {
+			m := &echo{
+				Message: "hello, " + r.URL.Path[len("/api/v1/echo/"):],
 			}
-
-			type data struct {
-				Hostname string
-				URL      string
-				Handler  string
-			}
-
-			type echo struct {
-				Message string `json:"message"`
-			}
-
-			if strings.HasPrefix(r.URL.Path, "/api/v1/echo/") {
-				m := &echo{
-					Message: "hello, " + r.URL.Path[len("/api/v1/echo/"):],
-				}
-				buf, err := json.Marshal(m)
-				if err != nil {
-					log.WithError(err).WithField("message", m.Message).
-						Error("while serializing echo response")
-					w.WriteHeader(http.StatusInternalServerError)
-				} else {
-					w.Header().Set("Content-Type", "application/json")
-					w.Write(buf)
-				}
+			buf, err := json.Marshal(m)
+			if err != nil {
+				log.WithError(err).WithField("message", m.Message).
+					Error("while serializing echo response")
+				w.WriteHeader(http.StatusInternalServerError)
 			} else {
-				err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/api/v1"})
-				if err != nil {
-					log.WithError(err).
-						WithField("template", indexTemplate.Name()).
-						WithField("path", r.URL.Path).
-						Error("Unable to execute template")
-				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Write(buf)
 			}
-
-		})
-		circuitBreaker, err := hystrix.NewHystrixHelper("grpc-backend")
-		if err != nil {
-			log.WithError(err).
-				Fatalf("Error creating circuitBreaker")
+		} else {
+			err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/api/v1"})
+			if err != nil {
+				log.WithError(err).
+					WithField("template", indexTemplate.Name()).
+					WithField("path", r.URL.Path).
+					Error("Unable to execute template")
+			}
 		}
-		metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
 
-		mux.Handle("/api/v1/", alice.New(circuitBreaker.Handler, VerifyIdentity).Then(apiMux))
+	})
+	circuitBreaker, err := hystrix.NewHystrixHelper("grpc-backend")
+	if err != nil {
+		log.WithError(err).
+			Fatalf("Error creating circuitBreaker")
+	}
+	metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
 
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/api/v1/", alice.New(circuitBreaker.Handler, VerifyIdentity).Then(apiMux))
 
-			type data struct {
-				Hostname string
-				URL      string
-				Handler  string
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
+		type data struct {
+			Hostname string
+			URL      string
+			Handler  string
+		}
+		logger.Info("@switch", zap.String("URL.Path", r.URL.Path))
+		switch r.URL.Path {
+		case "/apis-explorer":
+			r.URL.Path = "/apiList.html"
+			htmlGen.Server.ServeHTTP(w, r)
+			break
+
+		case "/test":
+			err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/"})
+			if err != nil {
+				log.WithError(err).
+					WithField("template", indexTemplate.Name()).
+					WithField("path", r.URL.Path).
+					Error("Unable to execute template")
+			}
+			break
+
+		default:
+			if r.URL.Path == "/" {
+				r.URL.Path = "/index.html"
 			}
 
-			switch r.URL.Path {
-			case "/apis-explorer":
-				r.URL.Path = "/apiList.html"
-				htmlGen.Server.ServeHTTP(w, r)
-				break
+			tmp.ServeHTTPWithIndexes(w, r)
+			//				status = http.StatusNotFound
+			//				http.NotFound(w, r)
+		}
 
-			case "/test":
-				err = indexTemplate.Execute(w, data{Hostname: hostname, URL: r.URL.Path, Handler: "/"})
-				if err != nil {
-					log.WithError(err).
-						WithField("template", indexTemplate.Name()).
-						WithField("path", r.URL.Path).
-						Error("Unable to execute template")
-				}
-				break
+	})
 
-			default:
-				if r.URL.Path == "/" {
-					r.URL.Path = "/index.html"
-				}
-
-				tmp.ServeHTTPWithIndexes(w, r)
-				//				status = http.StatusNotFound
-				//				http.NotFound(w, r)
-			}
-
-		})
-
-		canonical := handlers.CanonicalHost(host, http.StatusPermanentRedirect)
-		var tracer func(http.Handler) http.Handler
-		tracer = gsh.TracerFromHTTPRequest(gsh.NewTracer("playground"), "playground")
-		chain := alice.New(tracer,
-			gsh.HTTPMetricsCollector,
-			gsh.HTTPLogrusLogger,
-			canonical,
-			handlers.CompressHandler).Then(mux)
-
-		log.WithField("port", port).Info("HTTP service listening.")
-		errc <- http.ListenAndServe(port, chain)
-	}()
-
-	// start the hystrix stream provider
-	go func() {
-		hystrixStreamHandler := afex.NewStreamHandler()
-		hystrixStreamHandler.Start()
-		errc <- http.ListenAndServe(":8081", hystrixStreamHandler)
-	}()
-
-	// wait for somthin'
-	log.Infof("exit: %s", <-errc)
+	server.Run(ctx,
+		server.WithLogger(logger),
+		server.WithHTTPServer(mux))
 
 	return nil
+}
+
+func GetLogger() *zap.Logger {
+	//config := zap.NewProductionConfig()
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	logger, _ := config.Build(zap.AddStacktrace(zapcore.PanicLevel))
+
+	return logger //.With(log.String("x-request-id", "01234"))
 }
