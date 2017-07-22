@@ -13,6 +13,7 @@ func Run(ctx context.Context, logger *zap.Logger, port, certFile, keyFile string
 	server.Run(ctx,
 		server.WithLogger(logger),
 		server.WithCertificate(certFile, keyFile),
+		server.WithHTTPServer(NewHTTPServer(logger)),
 		server.WithRPCServer(func(s *grpc.Server) error {
 			echoServer, err := NewServer(logger)
 			if err != nil {
