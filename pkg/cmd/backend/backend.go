@@ -16,7 +16,6 @@ import (
 	"github.com/justinas/alice"
 	gsh "github.com/mchudgins/go-service-helper/handlers"
 	"github.com/mchudgins/go-service-helper/hystrix"
-	"github.com/mchudgins/go-service-helper/serveSwagger"
 	"github.com/mchudgins/go-service-helper/server"
 	"github.com/mchudgins/playground/pkg/cmd/backend/htmlGen"
 	"github.com/mchudgins/playground/tmp"
@@ -44,22 +43,20 @@ func init() {
 	indexTemplate = template.Must(template.New("/").Parse(html))
 }
 
-func Run(ctx context.Context, port, host string) error {
-	logger := GetLogger()
-	defer logger.Sync()
-
+func newServer(logger *zap.Logger) http.Handler {
 	hostname, err := os.Hostname()
 	if err != nil {
 		logger.Panic("unable to obtain hostname", zap.Error(err))
 	}
 
 	mux := mux.NewRouter()
-	swaggerProxy, _ := serveSwagger.NewSwaggerProxy("/swagger-ui/")
-	mux.Handle("/swagger-ui/", swaggerProxy)
+	/*
+		swaggerProxy, _ := serveSwagger.NewSwaggerProxy("/swagger-ui/")
+		mux.Handle("/swagger-ui/", swaggerProxy)
 
-	mux.Handle("/swagger/",
-		http.StripPrefix("/swagger/", Server))
-
+		mux.Handle("/swagger/",
+			http.StripPrefix("/swagger/", Server))
+	*/
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -109,16 +106,17 @@ func Run(ctx context.Context, port, host string) error {
 	}
 	metricCollector.Registry.Register(circuitBreaker.NewPrometheusCollector)
 
-	mux.Handle("/api/v1/", alice.New(circuitBreaker.Handler, VerifyIdentity).Then(apiMux))
+	mux.PathPrefix("/api/v1/").Handler(alice.New(circuitBreaker.Handler, VerifyIdentity).Then(apiMux))
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger.Info("@switch", zap.String("URL.Path", r.URL.Path))
 
 		type data struct {
 			Hostname string
 			URL      string
 			Handler  string
 		}
-		logger.Info("@switch", zap.String("URL.Path", r.URL.Path))
+
 		switch r.URL.Path {
 		case "/apis-explorer":
 			r.URL.Path = "/apiList.html"
@@ -147,8 +145,18 @@ func Run(ctx context.Context, port, host string) error {
 
 	})
 
+	return mux
+}
+
+func Run(ctx context.Context, port, host string) error {
+	logger := GetLogger()
+	defer logger.Sync()
+
+	mux := newServer(logger)
+
 	server.Run(ctx,
 		server.WithLogger(logger),
+		server.WithCertificate("../certMgr/cert.pem", "../certMgr/key.pem"),
 		server.WithHTTPServer(mux))
 
 	return nil
