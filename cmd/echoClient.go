@@ -24,6 +24,7 @@ import (
 	"log"
 
 	echo "github.com/dstcorp/rpc-golang/service"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -49,7 +50,8 @@ to quickly create a Cobra application.`,
 		conn, err := grpc.Dial("echo.local.dstcorp.io:50050",
 			grpc.WithTransportCredentials(creds),
 			grpc.WithCompressor(grpc.NewGZIPCompressor()),
-			grpc.WithDecompressor(grpc.NewGZIPDecompressor()))
+			grpc.WithDecompressor(grpc.NewGZIPDecompressor()),
+			grpc.UnaryClientInterceptor(grpc_prometheus.UnaryClientInterceptor))
 		if err != nil {
 			panic(err)
 		}
