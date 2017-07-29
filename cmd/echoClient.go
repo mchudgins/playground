@@ -47,11 +47,15 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			panic(err)
 		}
-		conn, err := grpc.Dial("echo.local.dstcorp.io:50050",
+		echoServer, err := cmd.Flags().GetString("hostname")
+		if err != nil {
+			panic(err)
+		}
+		conn, err := grpc.Dial(echoServer,
 			grpc.WithTransportCredentials(creds),
 			grpc.WithCompressor(grpc.NewGZIPCompressor()),
 			grpc.WithDecompressor(grpc.NewGZIPDecompressor()),
-			grpc.UnaryClientInterceptor(grpc_prometheus.UnaryClientInterceptor))
+			grpc.WithUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor))
 		if err != nil {
 			panic(err)
 		}
@@ -83,4 +87,5 @@ func init() {
 	// is called directly, e.g.:
 	// echoClientCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
+	echoClientCmd.Flags().StringP("hostname", "H", "echo.local.dstcorp.io:50050", "host:port of echo server")
 }
