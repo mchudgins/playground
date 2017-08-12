@@ -12,6 +12,7 @@ pkg/cmd/backend/assets.go: pkg/cmd/backend/assets/service.swagger.json
 	staticfiles -o pkg/cmd/backend/assets.go pkg/cmd/backend/assets
 
 fmt:
+	-gometalinter .
 	-goimports -w .
 
 run: pkg/cmd/backend/htmlGen/assets.go pkg/cmd/backend/assets.go
