@@ -12,6 +12,7 @@ pkg/cmd/backend/assets.go: pkg/cmd/backend/assets/service.swagger.json
 	staticfiles -o pkg/cmd/backend/assets.go pkg/cmd/backend/assets
 
 fmt:
+	-gometalinter .
 	-goimports -w .
 
 run: pkg/cmd/backend/htmlGen/assets.go pkg/cmd/backend/assets.go
@@ -19,3 +20,7 @@ run: pkg/cmd/backend/htmlGen/assets.go pkg/cmd/backend/assets.go
 
 clean: fmt
 	@-rm pkg/cmd/backend/htmlGen/assets.go
+
+coverage:
+	go test -coverprofile=/tmp/c.out ./echo
+	go tool cover -html /tmp/c.out
