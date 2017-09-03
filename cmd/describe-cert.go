@@ -32,10 +32,15 @@ type CertificateDescription struct {
 	Subject          string
 	AlternativeNames []string
 	Issuer           string
+	CA               bool
 }
 
 func (cd *CertificateDescription) ToString() string {
-	return fmt.Sprintf("%s, %s, %s", cd.Subject, cd.AlternativeNames, cd.Issuer)
+	ca := "server"
+	if cd.CA {
+		ca = "CA"
+	}
+	return fmt.Sprintf("%s, %s, %s, %s", cd.Subject, cd.AlternativeNames, cd.Issuer, ca)
 }
 
 // describe-certCmd represents the describe-cert command
@@ -97,6 +102,7 @@ func describe(file io.Reader) (*CertificateDescription, error) {
 		Subject:          cert.Subject.CommonName,
 		AlternativeNames: cert.DNSNames,
 		Issuer:           cert.Issuer.CommonName,
+		CA:               cert.IsCA,
 	}, nil
 }
 
