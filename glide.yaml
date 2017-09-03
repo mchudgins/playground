@@ -1,0 +1,42 @@
+package: github.com/mchudgins/playground
+import:
+- package: github.com/Sirupsen/logrus
+- package: github.com/afex/hystrix-go
+  subpackages:
+  - hystrix
+  - hystrix/metric_collector
+- package: github.com/dgrijalva/jwt-go
+- package: github.com/dstcorp/rpc-golang
+  subpackages:
+  - service
+- package: github.com/ghodss/yaml
+- package: github.com/gorilla/handlers
+- package: github.com/gorilla/mux
+- package: github.com/grpc-ecosystem/go-grpc-prometheus
+- package: github.com/justinas/alice
+- package: github.com/mchudgins/go-service-helper
+  subpackages:
+  - correlationID
+  - handlers
+  - hystrix
+  - server
+  - user
+  - zipkin
+- package: github.com/opentracing/opentracing-go
+  subpackages:
+  - ext
+- package: github.com/prometheus/client_golang
+  subpackages:
+  - prometheus
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
+- package: go.uber.org/zap
+  subpackages:
+  - zapcore
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/grpc
+  subpackages:
+  - credentials
+- package: gopkg.in/yaml.v2
