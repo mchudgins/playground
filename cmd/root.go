@@ -22,7 +22,6 @@ import (
 	"github.com/mchudgins/playground/pkg/cmd/backend"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	log "go.uber.org/zap"
 )
 
 var cfgFile string
@@ -38,17 +37,18 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		logger := GetLogger()
-		defer logger.Sync()
+		/*
+			logger := GetLogger()
+			defer logger.Sync()
 
-		cfg, err := cmd.Flags().GetString("config")
-		if err != nil {
-			logger.Warn("GetString", log.Error(err), log.String("flagName", "config"))
-		}
-		logger.Info("Root PreRun",
-			log.String("cfgFile", cfgFile),
-			log.String("from flags", cfg))
-
+			cfg, err := cmd.Flags().GetString("config")
+			if err != nil {
+				logger.Warn("GetString", log.Error(err), log.String("flagName", "config"))
+			}
+			logger.Info("Root PreRun",
+				log.String("cfgFile", cfgFile),
+				log.String("from flags", cfg))
+		*/
 		return nil
 	},
 	// Uncomment the following line if your bare application

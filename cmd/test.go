@@ -49,8 +49,11 @@ var (
 func GetLogger() *log.Logger {
 	//config := log.NewProductionConfig()
 	config := log.NewDevelopmentConfig()
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	logger, _ := config.Build()
+	config.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder
+	logger, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
 
 	return logger //.With(log.String("x-request-id", "01234"))
 }

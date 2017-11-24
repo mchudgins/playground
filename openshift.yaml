@@ -17,7 +17,7 @@ items:
   spec:
     ports:
     - port: 80
-      targetPort: 8080
+      targetPort: 9090
     selector:
       app: playground
 
@@ -51,9 +51,11 @@ items:
       spec:
         containers:
         - name: playground
-          image: mchudgins/playground:0.0.20
+          image: mchudgins/playground:latest
           args:
-            - backend
+            - hello
+            - --port
+            - :9090
           env:
             - name: POD_NAMESPACE
               valueFrom:
