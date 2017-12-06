@@ -1,28 +1,17 @@
 package reverseProxy
 
 import (
-	"expvar"
-	"fmt"
+	"context"
+	"crypto/tls"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
-	"os/signal"
+	"strconv"
 	"strings"
-	"syscall"
-
 	"time"
 
-	afex "github.com/afex/hystrix-go/hystrix"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
-	"github.com/justinas/alice"
-	"github.com/mchudgins/go-service-helper/correlationID"
-	gsh "github.com/mchudgins/go-service-helper/handlers"
-	"github.com/mchudgins/playground/pkg/healthz"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/mchudgins/go-service-helper/server"
 	"go.uber.org/zap"
 )
 
@@ -33,9 +22,10 @@ type Proxy struct {
 	logger      *zap.Logger
 	defaultCSP  string
 	target      url.URL
+	insecure    bool
 }
 
-func NewProxy(target *url.URL, defaultCSP string, logger *zap.Logger) (*Proxy, error) {
+func NewProxy(target *url.URL, defaultCSP string, logger *zap.Logger, listenPort string, fInsecure bool) (*Proxy, error) {
 
 	director := func(req *http.Request) {
 		req.Host = req.Header.Get("Host")
@@ -46,123 +36,97 @@ func NewProxy(target *url.URL, defaultCSP string, logger *zap.Logger) (*Proxy, e
 		logger.Info("new path", zap.String("path", req.URL.Path))
 	}
 
-	return &Proxy{
-		address:      ":7070",
+	proxy := &Proxy{
+		address:      listenPort,
 		target:       *target,
 		commandName:  target.Host,
 		defaultCSP:   defaultCSP,
 		ReverseProxy: httputil.ReverseProxy{Director: director},
-		logger:       logger}, nil
+		logger:       logger,
+		insecure:     fInsecure,
+	}
+
+	proxy.ReverseProxy.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 5 * time.Second,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: fInsecure},
+	}
+
+	return proxy, nil
 }
 
-func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+func (p *Proxy) Run(ctx context.Context, certFile, keyFile string) {
 
-	// send any correlation ID on to the servers we contact
-	corrID := correlationID.FromContext(ctx)
-	if len(corrID) > 0 {
-		r.Header.Set(correlationID.CORRID, corrID)
+	index := 0
+	if p.address[0] == ':' {
+		index = index + 1
+	}
+	listenPort, err := strconv.Atoi(p.address[index:])
+	if err != nil {
+		return
 	}
 
-	// enable tracing
-	var childSpan opentracing.Span
-	span := opentracing.SpanFromContext(ctx)
-
-	if span == nil {
-		childSpan = opentracing.StartSpan(p.commandName)
-	} else {
-		childSpan = opentracing.StartSpan(p.commandName,
-			opentracing.ChildOf(span.Context()))
-
-	}
-	defer childSpan.Finish()
-
-	ext.SpanKindRPCClient.Set(childSpan)
-
-	//r = r.WithContext(ctx)
-
-	// Transmit the span's TraceContext as HTTP headers on our
-	// outbound request.
-	opentracing.GlobalTracer().Inject(
-		childSpan.Context(),
-		opentracing.HTTPHeaders,
-		opentracing.HTTPHeadersCarrier(r.Header))
-
-	// the whole reason we're proxy'ing, is to test the app with various
-	// security-related headers
-
-	if len(p.defaultCSP) > 0 {
-		w.Header().Set("Content-Security-Policy", p.defaultCSP)
-	}
-
-	p.ReverseProxy.ServeHTTP(w, r)
+	server.Run(ctx,
+		server.WithLogger(p.logger),
+		server.WithHTTPListenPort(listenPort),
+		server.WithCertificate(certFile, keyFile),
+		server.WithHTTPServer(p.NewHTTPServer()),
+	)
 }
 
-func (p *Proxy) Run() error {
-	// make a channel to listen on events,
-	// then launch the servers.
+func (p *Proxy) NewHTTPServer() http.Handler {
+	mux := http.NewServeMux()
 
-	errc := make(chan error)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		/*
+			ctx := r.Context()
 
-	// interrupt handler
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		errc <- fmt.Errorf("%s", <-c)
-	}()
+				// send any correlation ID on to the servers we contact
+				corrID := correlationID.FromContext(ctx)
+				if len(corrID) > 0 {
+					r.Header.Set(correlationID.CORRID, corrID)
+				}
 
-	// proxy
-	go func() {
-		rootMux := mux.NewRouter() //actuator.NewActuatorMux("")
+				// enable tracing
+				var childSpan opentracing.Span
+				span := opentracing.SpanFromContext(ctx)
 
-		hc, err := healthz.NewConfig()
-		healthzHandler, err := healthz.Handler(hc)
-		if err != nil {
-			p.logger.Panic("Constructing healthz.Handler", zap.Error(err))
+				if span == nil {
+					childSpan = opentracing.StartSpan(p.commandName)
+				} else {
+					childSpan = opentracing.StartSpan(p.commandName,
+						opentracing.ChildOf(span.Context()))
+
+				}
+				defer childSpan.Finish()
+
+				ext.SpanKindRPCClient.Set(childSpan)
+
+				//r = r.WithContext(ctx)
+
+				// Transmit the span's TraceContext as HTTP headers on our
+				// outbound request.
+				opentracing.GlobalTracer().Inject(
+					childSpan.Context(),
+					opentracing.HTTPHeaders,
+					opentracing.HTTPHeadersCarrier(r.Header))
+		*/
+
+		// the whole reason we're proxy'ing, is to test the app with various
+		// security-related headers
+
+		if len(p.defaultCSP) > 0 {
+			w.Header().Set("Content-Security-Policy", p.defaultCSP)
 		}
 
-		// set up handlers for THIS instance
-		// (these are not expected to be proxied)
-		rootMux.Handle("/debug/vars", expvar.Handler())
-		rootMux.Handle("/healthz", healthzHandler)
-		rootMux.Handle("/metrics", prometheus.Handler())
-		rootMux.Handle("/cspReport", NewCSPReporter()).Methods("POST")
+		p.ReverseProxy.ServeHTTP(w, r)
+	})
 
-		canonical := handlers.CanonicalHost("http://fubar.local.dstcorp.io:7070", http.StatusPermanentRedirect)
-		var tracer func(http.Handler) http.Handler
-		tracer = gsh.TracerFromHTTPRequest(gsh.NewTracer(p.commandName), "proxy")
-
-		rootMux.PathPrefix("/").Handler(p)
-
-		chain := alice.New(tracer,
-			gsh.HTTPMetricsCollector,
-			gsh.HTTPLogrusLogger,
-			canonical)
-		// no need for the compressHandler
-
-		//errc <- http.ListenAndServe(p.address, chain.Then(rootMux))
-		tls := &http.Server{
-			Addr:              p.address,
-			Handler:           chain.Then(rootMux),
-			ReadTimeout:       time.Duration(5) * time.Second,
-			ReadHeaderTimeout: time.Duration(2) * time.Second,
-		}
-
-		errc <- tls.ListenAndServeTLS("../certMgr/cert.pem", "../certMgr/key.pem")
-	}()
-
-	// start the hystrix stream provider
-	go func() {
-		hystrixStreamHandler := afex.NewStreamHandler()
-		hystrixStreamHandler.Start()
-		errc <- http.ListenAndServe(":7071", hystrixStreamHandler)
-	}()
-
-	// wait for somthin'
-	p.logger.Info("Reverse Proxy Serving", zap.String("local address", p.address), zap.String("target", p.target.String()))
-	p.logger.Info("exit", zap.Error(<-errc))
-
-	return nil
+	return mux
 }
 
 func singleJoiningSlash(a, b string) string {

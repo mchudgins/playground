@@ -21,11 +21,19 @@
 package cmd
 
 import (
+	"context"
 	"net/url"
 
 	"github.com/mchudgins/playground/reverseProxy"
 	"github.com/spf13/cobra"
 	log "go.uber.org/zap"
+)
+
+var (
+	rpListenPort string
+	rpCert       string
+	rpKey        string
+	rpInsecure   bool
 )
 
 // reverse-proxyCmd represents the reverse-proxy command
@@ -55,13 +63,13 @@ to quickly create a Cobra application.`,
 		}
 		csp, _ := cmd.Flags().GetString("csp")
 		logger.Info("csp", log.String("csp", csp))
-		p, err := reverseProxy.NewProxy(target, csp, logger)
+		p, err := reverseProxy.NewProxy(target, csp, logger, rpListenPort, rpInsecure)
 		if err != nil {
 			logger.Fatal("unable to construct new proxy", log.Error(err))
 			return
 		}
 
-		p.Run()
+		p.Run(context.Background(), rpCert, rpKey)
 	},
 }
 
@@ -78,4 +86,8 @@ func init() {
 	// is called directly, e.g.:
 	// reverse-proxyCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	reverseProxyCmd.Flags().String("csp", "", "Default Content Security Policy Header")
+	reverseProxyCmd.Flags().StringVar(&rpListenPort, "port", ":8080", "listen port for HTTP service")
+	reverseProxyCmd.Flags().StringVar(&rpCert, "cert", "cert.pem", "pem certificate file")
+	reverseProxyCmd.Flags().StringVar(&rpKey, "key", "key.pem", "pem key file")
+	reverseProxyCmd.Flags().BoolVar(&rpInsecure, "insecure", false, "if true, accept any server certificate")
 }
