@@ -32,8 +32,6 @@ func NewProxy(target *url.URL, defaultCSP string, logger *zap.Logger, listenPort
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.URL.Path = singleJoiningSlash(target.Path, req.URL.Path)
-
-		logger.Info("new path", zap.String("path", req.URL.Path))
 	}
 
 	proxy := &Proxy{
