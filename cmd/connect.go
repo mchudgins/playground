@@ -23,10 +23,10 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
-	"github.com/spf13/cobra"
 )
 
 // connectCmd represents the connect command
@@ -59,7 +59,7 @@ to quickly create a Cobra application.`,
 			panic(err)
 		}
 
-		ns, err := client.Pods("mch-2").List(v1.ListOptions{})
+		ns, err := client.Pods("mch").List(v1.ListOptions{})
 		if err != nil {
 			panic(err)
 		}
