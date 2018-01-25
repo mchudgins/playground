@@ -9,6 +9,7 @@ _test
 .idea
 tmp
 dist
+bin
 
 # Architecture specific extensions/prefixes
 *.[568vq]
@@ -25,4 +26,6 @@ _testmain.go
 *.exe
 *.test
 *.prof
-
+pg
+playground
+docker/playground
