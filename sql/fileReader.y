@@ -159,7 +159,7 @@ func (l *Lex) Error(s string) {
 	fmt.Printf("syntax error: %s\n", s)
 }
 
-func parseFile( filename string ) ([]Record, error) {
+func ParseFile( filename string ) ([]Record, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return records, err
