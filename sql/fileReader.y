@@ -164,7 +164,6 @@ func ParseFile( filename string ) ([]Record, error) {
 	if err != nil {
 		return records, err
 	}
-	logger.Debug("file read")
 
     parse := yyNewParser()
     parse.Parse(&Lex{fileContents: data, r: strings.NewReader(string(data))})
