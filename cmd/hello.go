@@ -28,6 +28,7 @@ import (
 )
 
 var port string
+var fTrace bool
 
 // helloCmd represents the hello command
 var helloCmd = &cobra.Command{
@@ -39,7 +40,7 @@ var helloCmd = &cobra.Command{
 		logger := GetLogger()
 		defer logger.Sync()
 
-		hello.Run(context.Background(), logger, port, "", "")
+		hello.Run(context.Background(), logger, fTrace, port, "", "")
 	},
 }
 
@@ -57,4 +58,5 @@ func init() {
 	// helloCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	helloCmd.Flags().StringVarP(&port, "port", "p", ":8080", "listen port for HTTP service")
+	helloCmd.Flags().BoolVarP(&fTrace, "trace", "t", false, "Enable Zipkin tracing")
 }

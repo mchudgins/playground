@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Run(ctx context.Context, logger *zap.Logger, port, certFile, keyFile string) {
+func Run(ctx context.Context, logger *zap.Logger, fTrace bool, port, certFile, keyFile string) {
 
 	index := 0
 	if port[0] == ':' {
@@ -23,11 +23,14 @@ func Run(ctx context.Context, logger *zap.Logger, port, certFile, keyFile string
 		return
 	}
 
-	server.Run(ctx,
-		server.WithLogger(logger),
-		server.WithHTTPListenPort(listenPort),
-		server.WithHTTPServer(NewHTTPServer(logger)),
-	)
+	var opts []server.Option
+	opts = append(opts, server.WithLogger(logger))
+	opts = append(opts, server.WithHTTPListenPort(listenPort))
+	opts = append(opts, server.WithHTTPServer(NewHTTPServer(logger)))
+	if fTrace {
+		opts = append(opts, server.WithZipkinTracer())
+	}
+	server.Run(ctx, opts...)
 }
 
 func NewHTTPServer(logger *zap.Logger) http.Handler {
