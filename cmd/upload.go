@@ -31,6 +31,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var dbType string
+
 // uploadCmd represents the upload command
 var uploadCmd = &cobra.Command{
 	Use:   "upload",
@@ -46,7 +48,7 @@ to quickly create a Cobra application.`,
 			Logger: log.GetLogger("insert"),
 		}
 		dsn := fmt.Sprintf("mch:password@tcp(%s)/fubar", host)
-		err := ddbCMD.UploadFile(context.Background(), args[0], limit, dsn)
+		err := ddbCMD.UploadFile(context.Background(), args[0], limit, dbType, dsn)
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "Error:  %s\n", err)
 			os.Exit(1)
@@ -69,4 +71,5 @@ func init() {
 	// uploadCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	uploadCmd.Flags().IntVar(&limit, "upload-limit", 800, "upload limt")
+	uploadCmd.Flags().StringVar(&dbType, "nosql-engine", "cassandra", "nosql engine type")
 }

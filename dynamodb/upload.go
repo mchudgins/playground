@@ -25,10 +25,13 @@ import (
 
 	"fmt"
 
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsdb "github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"github.com/gocql/gocql"
 	"github.com/google/uuid"
 	"github.com/mchudgins/playground/sql"
 	"go.uber.org/zap"
@@ -38,7 +41,7 @@ const (
 	batchSize int = 10
 )
 
-func (cmd *DDB) UploadFile(ctx context.Context, filename string, limit int, dsn string) error {
+func (cmd *DDB) UploadFile(ctx context.Context, filename string, limit int, engine string, dsn string) error {
 
 	cmd.Logger.Debug("InsertFile+")
 	defer cmd.Logger.Debug("InsertFile-")
@@ -68,14 +71,51 @@ func (cmd *DDB) UploadFile(ctx context.Context, filename string, limit int, dsn 
 	}
 	completion := make(chan response)
 
+	// cassandra
+	cassandraInsert := func(tid, start, end int, c chan response) {
+		logger := cmd.Logger.With(zap.Int("tid", tid), zap.String("func", "cassandraInsert"))
+		logger.Debug("insert+", zap.Int("start", start), zap.Int("end", end))
+		defer logger.Debug("insert-")
+
+		cluster := gocql.NewCluster("172.31.30.210", "172.31.24.131", "172.31.17.239", "172.31.31.219", "172.32.22.220")
+		cluster.Keyspace = "fubar"
+		cluster.Consistency = gocql.Quorum
+		session, err := cluster.CreateSession()
+		if err != nil {
+			logger.Error("creating session", zap.Error(err))
+			c <- response{err: err, id: tid}
+
+		}
+		defer session.Close()
+
+		for i := start; i < end; i += batchSize {
+			r := records[i]
+			err = session.Query("INSERT INTO hits (project, page, hits, size, id) VALUES (?,?,?,?,?)",
+				r.Project, r.Page, r.Hits, r.Size, uuid.New().String()).Exec()
+			if err != nil {
+				logger.Error("inserting record",
+					zap.Error(err),
+					zap.Int("index", i),
+					zap.String("project", r.Project),
+					zap.String("page", r.Page),
+					zap.Int("hits", r.Hits),
+					zap.Int("size", r.Size))
+			}
+		}
+
+		c <- response{err: nil, id: tid}
+	}
+
+	// dynamodb
+
 	session, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 	})
 	//svc := awsdb.New(session)
 	svc := awsdb.New(session)
 
-	insert := func(tid, start, end int, c chan response) {
-		logger := cmd.Logger.With(zap.Int("threadId", tid), zap.String("func", "insert"))
+	dynamoInsert := func(tid, start, end int, c chan response) {
+		logger := cmd.Logger.With(zap.Int("tid", tid), zap.String("func", "dynamodbInsert"))
 		logger.Debug("insert+", zap.Int("start", start), zap.Int("end", end))
 		defer logger.Debug("insert-")
 
@@ -175,9 +215,18 @@ func (cmd *DDB) UploadFile(ctx context.Context, filename string, limit int, dsn 
 		c <- response{err: nil, id: tid}
 	}
 
-	for i := 0; i < 1; i++ {
-		cmd.Logger.Debug("spinning up thread", zap.Int("tid", i))
-		go insert(i, subset*i, subset*(i+1), completion)
+	switch strings.ToLower(engine) {
+	case "cassandra":
+		for i := 0; i < threads; i++ {
+			cmd.Logger.Debug("spinning up thread", zap.Int("tid", i))
+			go cassandraInsert(i, subset*i, subset*(i+1), completion)
+		}
+
+	case "dynamodb":
+		for i := 0; i < 1; i++ {
+			cmd.Logger.Debug("spinning up thread", zap.Int("tid", i))
+			go dynamoInsert(i, subset*i, subset*(i+1), completion)
+		}
 	}
 
 	for i := 0; i < threads-1; i++ {
