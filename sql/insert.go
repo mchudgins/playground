@@ -37,23 +37,13 @@ type Record struct {
 
 var (
 	records []Record
-	logger  *zap.Logger
 )
-
-func AppendRecord(project, page, hits, size string) {
-	logger.Debug("append",
-		zap.String("project", project),
-		zap.String("page", page),
-		zap.String("hits", hits),
-		zap.String("size", size))
-}
 
 func (cmd *SQL) InsertFile(ctx context.Context, filename string, limit int, dsn string) error {
 	cmd.Logger.Debug("InsertFile+")
 	defer cmd.Logger.Debug("InsertFile-")
-	logger = cmd.Logger
 
-	records, err := parseFile(filename)
+	records, err := ParseFile(filename)
 	if err != nil {
 		return err
 	}
