@@ -29,10 +29,10 @@ import (
 )
 
 type Record struct {
-	project string
-	page    string
-	hits    int
-	size    int
+	Project string
+	Page    string
+	Hits    int
+	Size    int
 }
 
 var (
@@ -91,10 +91,10 @@ func (cmd *SQL) InsertFile(ctx context.Context, filename string, limit int, dsn 
 			}
 			/*
 				cmd.Logger.Debug("record",
-					zap.String("project", records[i].project),
-					zap.String("page", records[i].page),
-					zap.Int("hits", records[i].hits),
-					zap.Int("size", records[i].size),
+					zap.String("project", records[i].Project),
+					zap.String("page", records[i].Page),
+					zap.Int("hits", records[i].Hits),
+					zap.Int("size", records[i].Size),
 					zap.Int("i", i))
 			*/
 
@@ -105,21 +105,21 @@ func (cmd *SQL) InsertFile(ctx context.Context, filename string, limit int, dsn 
 					"(?, ?, ?, ?), (?, ?, ?, ?), "+
 					"(?, ?, ?, ?), (?, ?, ?, ?), "+
 					"(?, ?, ?, ?), (?, ?, ?, ?);",
-				records[i].project, records[i].page, records[i].hits, records[i].size,
-				records[i+1].project, records[i+1].page, records[i+1].hits, records[i+1].size,
-				records[i+2].project, records[i+2].page, records[i+2].hits, records[i+2].size,
-				records[i+3].project, records[i+3].page, records[i+3].hits, records[i+3].size,
-				records[i+4].project, records[i+4].page, records[i+4].hits, records[i+4].size,
-				records[i+5].project, records[i+5].page, records[i+5].hits, records[i+5].size,
-				records[i+6].project, records[i+6].page, records[i+6].hits, records[i+6].size,
-				records[i+7].project, records[i+7].page, records[i+7].hits, records[i+7].size,
-				records[i+8].project, records[i+8].page, records[i+8].hits, records[i+8].size,
-				records[i+9].project, records[i+9].page, records[i+9].hits, records[i+9].size)
+				records[i].Project, records[i].Page, records[i].Hits, records[i].Size,
+				records[i+1].Project, records[i+1].Page, records[i+1].Hits, records[i+1].Size,
+				records[i+2].Project, records[i+2].Page, records[i+2].Hits, records[i+2].Size,
+				records[i+3].Project, records[i+3].Page, records[i+3].Hits, records[i+3].Size,
+				records[i+4].Project, records[i+4].Page, records[i+4].Hits, records[i+4].Size,
+				records[i+5].Project, records[i+5].Page, records[i+5].Hits, records[i+5].Size,
+				records[i+6].Project, records[i+6].Page, records[i+6].Hits, records[i+6].Size,
+				records[i+7].Project, records[i+7].Page, records[i+7].Hits, records[i+7].Size,
+				records[i+8].Project, records[i+8].Page, records[i+8].Hits, records[i+8].Size,
+				records[i+9].Project, records[i+9].Page, records[i+9].Hits, records[i+9].Size)
 			if err != nil {
 				cmd.Logger.Error("Insert Error", zap.Error(err),
 					zap.Int("i", i),
-					zap.Int("size[i]", records[i].size),
-					zap.Int("size[i+1]", records[i+1].size))
+					zap.Int("size[i]", records[i].Size),
+					zap.Int("size[i+1]", records[i+1].Size))
 			}
 		}
 

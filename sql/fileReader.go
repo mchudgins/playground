@@ -1,9 +1,9 @@
-//line sql/fileReader.y:24
+//line fileReader.y:24
 package sql
 
 import __yyfmt__ "fmt"
 
-//line sql/fileReader.y:25
+//line fileReader.y:25
 import (
 	"fmt"
 	"io/ioutil"
@@ -12,7 +12,7 @@ import (
 	"unicode"
 )
 
-//line sql/fileReader.y:39
+//line fileReader.y:39
 type yySymType struct {
 	yys     int
 	records []Record
@@ -39,7 +39,7 @@ const yyEofCode = 1
 const yyErrCode = 2
 const yyInitialStackSize = 16
 
-//line sql/fileReader.y:91
+//line fileReader.y:91
 
 /*  start  of  programs  */
 
@@ -520,52 +520,52 @@ yydefault:
 
 	case 1:
 		yyDollar = yyS[yypt-1 : yypt+1]
-		//line sql/fileReader.y:60
+		//line fileReader.y:60
 		{
 			records = yyDollar[1].records
 		}
 	case 2:
 		yyDollar = yyS[yypt-0 : yypt+1]
-		//line sql/fileReader.y:63
+		//line fileReader.y:63
 		{
 			yyVAL.records = make([]Record, 0, 2000000)
 		}
 	case 3:
 		yyDollar = yyS[yypt-2 : yypt+1]
-		//line sql/fileReader.y:64
+		//line fileReader.y:64
 		{
 			yyVAL.records = append(yyDollar[1].records, yyDollar[2].record)
 		}
 	case 4:
 		yyDollar = yyS[yypt-5 : yypt+1]
-		//line sql/fileReader.y:69
+		//line fileReader.y:69
 		{
-			yyVAL.record.project = yyDollar[1].str
-			yyVAL.record.page = yyDollar[2].str
-			yyVAL.record.hits, _ = strconv.Atoi(yyDollar[3].str)
-			yyVAL.record.size, _ = strconv.Atoi(yyDollar[4].str)
+			yyVAL.record.Project = yyDollar[1].str
+			yyVAL.record.Page = yyDollar[2].str
+			yyVAL.record.Hits, _ = strconv.Atoi(yyDollar[3].str)
+			yyVAL.record.Size, _ = strconv.Atoi(yyDollar[4].str)
 		}
 	case 7:
 		yyDollar = yyS[yypt-1 : yypt+1]
-		//line sql/fileReader.y:81
+		//line fileReader.y:81
 		{
 			yyVAL.str = yyDollar[1].str
 		}
 	case 8:
 		yyDollar = yyS[yypt-1 : yypt+1]
-		//line sql/fileReader.y:82
+		//line fileReader.y:82
 		{
 			yyVAL.str = yyDollar[1].str
 		}
 	case 9:
 		yyDollar = yyS[yypt-1 : yypt+1]
-		//line sql/fileReader.y:85
+		//line fileReader.y:85
 		{
 			yyVAL.str = yyDollar[1].str
 		}
 	case 10:
 		yyDollar = yyS[yypt-1 : yypt+1]
-		//line sql/fileReader.y:88
+		//line fileReader.y:88
 		{
 			yyVAL.str = yyDollar[1].str
 		}

@@ -67,10 +67,10 @@ recordList : /* empty */ { $$ = make([]Record, 0, 2000000) }
     ;
 
 record : project page hits size NL  {
-                                    $$.project = $1
-                                    $$.page = $2
-                                    $$.hits, _ = strconv.Atoi($3)
-                                    $$.size, _ = strconv.Atoi( $4 )
+                                    $$.Project = $1
+                                    $$.Page = $2
+                                    $$.Hits, _ = strconv.Atoi($3)
+                                    $$.Size, _ = strconv.Atoi( $4 )
                                     }
     ;
 
