@@ -1,13 +1,11 @@
 package vault
 
 import (
-	"encoding/json"
-
-	"net/http"
-
 	"bytes"
-
+	"context"
+	"encoding/json"
 	"io/ioutil"
+	"net/http"
 
 	"go.uber.org/zap"
 )
@@ -31,7 +29,7 @@ type createCertResponse struct {
 	Data      createCertResponseData `json:"data"`
 }
 
-func (v *Vault) NewCert(commonName string, alternativeNames []string) {
+func (v *Vault) NewCert(ctx context.Context, commonName string, alternativeNames []string) (cert string, key string, err error) {
 	v.Logger.Debug("vault.NewCert+",
 		zap.String("commonName", commonName),
 		zap.Any("alternativeNames", alternativeNames))
@@ -94,4 +92,8 @@ func (v *Vault) NewCert(commonName string, alternativeNames []string) {
 		zap.String("certificate", output.Data.Certificate),
 		zap.String("issuer", output.Data.Issuer),
 		zap.String("key", output.Data.Key))
+
+	cert = output.Data.Certificate
+	key = output.Data.Key
+	return
 }
