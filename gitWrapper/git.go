@@ -44,7 +44,9 @@ const (
 type GitWrapper struct {
 	Logger         *zap.Logger
 	Repository     string
-	GitlabPassword string
+	GitlabUsername string
+	GitlabPassword string // needed to clone/push
+	GitlabToken    string // needed to create Merge request
 }
 
 func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alternatives []string, requestor, cert string) error {
@@ -65,8 +67,8 @@ func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alter
 		zap.String("tmpdir", tmpDir))
 
 	basicAuth := &http.BasicAuth{
-		Username: "dst_certificate_management",
-		Password: "",
+		Username: g.GitlabUsername,
+		Password: g.GitlabPassword,
 	}
 
 	r, err := git.PlainCloneContext(ctx, tmpDir, false, &git.CloneOptions{

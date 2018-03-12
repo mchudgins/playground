@@ -32,6 +32,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	repository     string = "https://gitlab.com/dstcorp/testRepo.git"
+	gitlabUsername string = "dst_certificate_management"
+	vaultGitlabURL string = "secret/aws-lambda/certificateManagementBot/gitlab"
+)
+
 // newCertCmd represents the newCert command
 var newCertCmd = &cobra.Command{
 	Use:   "newCert <domain name> <alternative names>",
@@ -62,7 +68,7 @@ to quickly create a Cobra application.`,
 		cert, key, err := v.NewCert(ctx, args[0], args[1:])
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "Error creating certificate: %s\n\n", err)
-			//			os.Exit(1)
+			os.Exit(1)
 			cert = `-----BEGIN CERTIFICATE-----
 MIIEKzCCAhOgAwIBAgIRANyRKap3ZqPd8TPVFaFCv4wwDQYJKoZIhvcNAQELBQAw
 gYwxCzAJBgNVBAYTAlVTMRkwFwYDVQQKDBBEU1QgU3lzdGVtcywgSW5jMUUwQwYD
@@ -95,9 +101,24 @@ GQAkLE59fvxQs8A11mNL
 			fmt.Printf("%s\n%s\n\n", cert, key)
 		}
 
+		gitlabPassword, err := v.GetSecret(vaultGitlabURL, "Password") // secretValue MUST start with Uppercase
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "Unable to retrieve the gitlab password for the service agent -- %s", err)
+			os.Exit(3)
+		}
+
+		gitlabToken, err := v.GetSecret(vaultGitlabURL, "Token") // secretValue MUST start with Uppercase
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "Unable to retrieve the gitlab token for the service agent -- %s", err)
+			os.Exit(3)
+		}
+
 		repo := &repo.GitWrapper{
-			Logger:     logger,
-			Repository: "https://gitlab.com/dstcorp/testRepo.git",
+			Logger:         logger,
+			Repository:     repository,
+			GitlabUsername: gitlabUsername,
+			GitlabPassword: gitlabPassword,
+			GitlabToken:    gitlabToken,
 		}
 
 		err = repo.AddOrUpdateFile(ctx, args[0], args, "somebody@example.com", cert)
