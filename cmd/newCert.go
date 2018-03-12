@@ -43,13 +43,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		logger := log.GetLogger("vault")
+		ctx := context.Background()
+		logger.Debug("newCertCmd+")
+		defer logger.Debug("newCertCmd-")
+
 		if len(args) < 1 {
 			cmd.Usage()
 			return
 		}
-
-		logger := log.GetLogger("vault")
-		ctx := context.Background()
 
 		v := vault.Vault{
 			Address: vaultAddress,
@@ -88,7 +91,9 @@ GQAkLE59fvxQs8A11mNL
 `
 		}
 
-		fmt.Printf("%s\n%s\n\n", cert, key)
+		if os.Getenv("LOG_LEVEL") == "DEBUG" {
+			fmt.Printf("%s\n%s\n\n", cert, key)
+		}
 
 		repo := &repo.GitWrapper{
 			Logger:     logger,

@@ -36,12 +36,15 @@ import (
 )
 
 const (
-	certPath string = "certificates/"
+	certPath       string = "certificates/"
+	gitlabUsername string = "Certificate Management Bot"
+	email          string = "certificateManagement@dstcorp.io"
 )
 
 type GitWrapper struct {
-	Logger     *zap.Logger
-	Repository string
+	Logger         *zap.Logger
+	Repository     string
+	GitlabPassword string
 }
 
 func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alternatives []string, requestor, cert string) error {
@@ -62,8 +65,8 @@ func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alter
 		zap.String("tmpdir", tmpDir))
 
 	basicAuth := &http.BasicAuth{
-		Username: "mchudgins",
-		Password: "pdp11gitlab",
+		Username: "dst_certificate_management",
+		Password: "",
 	}
 
 	r, err := git.PlainCloneContext(ctx, tmpDir, false, &git.CloneOptions{
@@ -98,8 +101,8 @@ func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alter
 	opts := &git.CommitOptions{
 		All: false,
 		Author: &object.Signature{
-			Name:  "The Config Merge Bot",
-			Email: "config-bot@dstcorp.io",
+			Name:  gitlabUsername,
+			Email: email,
 			When:  time.Now(),
 		},
 	}
@@ -112,14 +115,20 @@ func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alter
 	g.Logger.Debug("commit successful", zap.Any("commit", commit))
 
 	// push the changes to the remote repository
+	branch := fmt.Sprintf("certificates/%s-%d", certname, time.Now().Unix())
 	refSpecs := make([]config.RefSpec, 1)
-	refSpecs[0] = "refs/heads/master:refs/heads/master"
+	refSpecs[0] = config.RefSpec("refs/heads/master:refs/heads/" + branch)
 	pushOpts := &git.PushOptions{
 		RemoteName: "origin",
 		RefSpecs:   refSpecs,
 		Auth:       basicAuth,
 	}
 	err = r.PushContext(ctx, pushOpts)
+	if err != nil {
+		return err
+	}
+
+	// create a merge request so somebody will merge it into the master branch
 
 	return err
 }

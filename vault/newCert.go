@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -72,6 +73,13 @@ func (v *Vault) NewCert(ctx context.Context, commonName string, alternativeNames
 	resp, err := c.Do(r)
 	if err != nil {
 		log.Error("POST'ing request", zap.Error(err))
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("unable to create certificate -- expected 200 response, got %d", resp.StatusCode)
+		log.Error("while calling Vault",
+			zap.Error(err),
+			zap.Int("StatusCode", resp.StatusCode))
 		return
 	}
 
