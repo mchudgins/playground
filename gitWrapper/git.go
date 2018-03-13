@@ -22,17 +22,18 @@ package gitWrapper
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
-
-	"fmt"
 
 	"go.uber.org/zap"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
-	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
+	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
 
 const (
@@ -47,6 +48,8 @@ type GitWrapper struct {
 	GitlabUsername string
 	GitlabPassword string // needed to clone/push
 	GitlabToken    string // needed to create Merge request
+	repoURL        *url.URL
+	client         *http.Client
 }
 
 func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alternatives []string, requestor, cert string) error {
@@ -66,7 +69,7 @@ func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alter
 		zap.String("repo", g.Repository),
 		zap.String("tmpdir", tmpDir))
 
-	basicAuth := &http.BasicAuth{
+	basicAuth := &githttp.BasicAuth{
 		Username: g.GitlabUsername,
 		Password: g.GitlabPassword,
 	}
@@ -108,8 +111,10 @@ func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alter
 			When:  time.Now(),
 		},
 	}
-	commitMsg := fmt.Sprintf("Committing vault generated certificate: %s\n\nSubject Alternative Names:  %+v\nRequestor: %s\n",
-		certname, alternatives, requestor)
+
+	title := fmt.Sprintf("Committing vault generated certificate: %s", certname)
+	commitMsg := fmt.Sprintf("%s\n\nSubject Alternative Names:  %+v\nRequestor: %s\n",
+		title, alternatives, requestor)
 	commit, err := wt.Commit(commitMsg, opts)
 	if err != nil {
 		return err
@@ -132,7 +137,7 @@ func (g *GitWrapper) AddOrUpdateFile(ctx context.Context, certname string, alter
 
 	// create a merge request so somebody will merge it into the master branch
 
-	return err
+	return g.CreateMergeRequestFromBranch(ctx, title, branch)
 }
 
 func (g *GitWrapper) writeFile(ctx context.Context, filename, cert string) error {
