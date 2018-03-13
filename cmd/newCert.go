@@ -61,17 +61,10 @@ to quickly create a Cobra application.`,
 			return
 		}
 
+		// v is the vault client
 		v := vault.New(logger, vaultAddress, vaultToken)
-		cert, key, err := v.NewCert(ctx, args[0], args[1:])
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "Error creating certificate: %s\n\n", err)
-			os.Exit(1)
-		}
 
-		if os.Getenv("LOG_LEVEL") == "DEBUG" {
-			fmt.Printf("%s\n%s\n\n", cert, key)
-		}
-
+		// type 'feedback' allows go routines to communicate with the main routine
 		type feedback struct {
 			result string
 			thread string
@@ -80,6 +73,9 @@ to quickly create a Cobra application.`,
 		c := make(chan feedback)
 
 		// go get the gitlab password & token (in parallel)
+		//
+		// gitlab uses the password for checkin/checkout operations
+		// and the token for merge requests.
 
 		secretGetter := func(ctx context.Context, c chan feedback, secret string) {
 			val, err := v.GetSecret(ctx, vaultGitlabURL, secret) // secretValue MUST start with Uppercase
@@ -97,6 +93,14 @@ to quickly create a Cobra application.`,
 		go secretGetter(ctx, c, "Password")
 		go secretGetter(ctx, c, "Token")
 
+		// ask Vault to create the public key & private key
+		cert, key, err := v.NewCert(ctx, args[0], args[1:])
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "Error creating certificate: %s\n\n", err)
+			os.Exit(1)
+		}
+
+		//  wait for the go routines to fetch the pword and token
 		for i := 0; i < 2; i++ {
 			f := <-c
 			if f.err != nil {
