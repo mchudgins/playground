@@ -66,32 +66,6 @@ to quickly create a Cobra application.`,
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "Error creating certificate: %s\n\n", err)
 			os.Exit(1)
-			cert = `-----BEGIN CERTIFICATE-----
-MIIEKzCCAhOgAwIBAgIRANyRKap3ZqPd8TPVFaFCv4wwDQYJKoZIhvcNAQELBQAw
-gYwxCzAJBgNVBAYTAlVTMRkwFwYDVQQKDBBEU1QgU3lzdGVtcywgSW5jMUUwQwYD
-VQQLDDxEU1QgSW50ZXJuYWwgVXNlIE9ubHkgLS0gVW5jb25zdHJhaW5lZCBDbG91
-ZCBDZXJ0IFNpZ25pbmcgQ0ExGzAZBgNVBAMMEnVjYXAtY2EuZHN0Y29ycC5pbzAe
-Fw0xODAzMDYxNzI4MTdaFw0xODA2MDQxNzI4MTdaMDsxGTAXBgNVBAoTEERTVCBT
-eXN0ZW1zLCBJbmMxHjAcBgNVBAMTFXRlc3QubG9jYWwuZHN0Y29ycC5pbzBZMBMG
-ByqGSM49AgEGCCqGSM49AwEHA0IABIjD58J0cSDMjmIusAn3hO8X2MNgyf48LDt4
-3mNs0my11MWHU2wgoz2h3EWgVmUmsdyU5oZp0oxlCWiJnQh65RGjgaIwgZ8wDgYD
-VR0PAQH/BAQDAgWgMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjAMBgNV
-HRMBAf8EAjAAMB8GA1UdIwQYMBaAFCZPDmy9K6uj32tzXMnBQ5RpK3taMD8GA1Ud
-EQQ4MDaCFXRlc3QubG9jYWwuZHN0Y29ycC5pb4IJbG9jYWxob3N0ghIqLmxvY2Fs
-LmRzdGNvcnAuaW8wDQYJKoZIhvcNAQELBQADggIBAGGt31PtFaW1gV2VoH6ANH2C
-JskECCY3Mnj1OK1FaYpFp5t2G5kr0gkmNyyd2L7hKT8ugKQTtPwpK1614TSmjCf7
-d7X5V+6vZXymWJKYdKk/0c91bqnfDG/Cb9BKG89rxLc3hv+sdHHzUDT6NBasOcV8
-yjwjGzEFGS52f3Llv4RadVlCdTBSCH9lZLgA+fy9caKXIf4hyhrPjmYhdFUS6KTO
-095d9URNe2lEWjDGTU3uQ0qqT+JfzVJ2hXa4AacetoQgJKvY40UpaPe+Ix5sH890
-RtXFZN570PbURqJy5/HkRmEFVxg6XbbbG0eSPxISQEJsJwfaEszij6g7Cb5krPQw
-AsUMYaeNV0z1O8N+3JFpQrkEhHMHC0i/9M7O19vgmlCh8YEpquR/kGP8Mq2Z/JXn
-5nBeioDRDeN85/gYKubz1PkQ+CW9kgcW1BULbSy0SN+j/FlU8ZV/ZQ8p0tXi9RdW
-RFJR+sduXcS2WUruDpIeyc9Ix8ggvaVokTldKSr9yhfqKud2W+5tEbcBtCaeK2+b
-n4XlgGEKorMQ9gFJ+Kj9RkQ4sm3o1FmeuDbZHKwXs8nw7Bk1hfBwnbNVlyJcDFyn
-272X41MIBW/vxRPPoIZAjja6QHQ1LJ1aCo218Unf4mA9oFYPUVO9oBFwXdeBi23h
-GQAkLE59fvxQs8A11mNL
------END CERTIFICATE-----
-`
 		}
 
 		if os.Getenv("LOG_LEVEL") == "DEBUG" {
@@ -105,7 +79,7 @@ GQAkLE59fvxQs8A11mNL
 		}
 		c := make(chan feedback)
 
-		// go get password & token for gitlab (in parallel)
+		// go get the gitlab password & token (in parallel)
 
 		secretGetter := func(ctx context.Context, c chan feedback, secret string) {
 			val, err := v.GetSecret(ctx, vaultGitlabURL, secret) // secretValue MUST start with Uppercase
@@ -169,6 +143,7 @@ GQAkLE59fvxQs8A11mNL
 			}
 		}("storeSecret")
 
+		// wait for public & private keys to be persisted
 		for i := 0; i < 2; i++ {
 			f := <-c
 			if f.err != nil {

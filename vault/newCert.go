@@ -57,8 +57,6 @@ func (v *Vault) NewCert(ctx context.Context, commonName string, alternativeNames
 		return
 	}
 
-	log.Debug("marshal", zap.ByteString("buf", buf))
-
 	// need to POST the data to the vault api
 
 	body := bytes.NewReader(buf)
@@ -97,8 +95,7 @@ func (v *Vault) NewCert(ctx context.Context, commonName string, alternativeNames
 
 	log.Debug("createCertResponse",
 		zap.String("certificate", output.Data.Certificate),
-		zap.String("issuer", output.Data.Issuer),
-		zap.String("key", output.Data.Key))
+		zap.String("issuer", output.Data.Issuer))
 
 	cert = output.Data.Certificate
 	key = output.Data.Key

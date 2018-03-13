@@ -64,7 +64,7 @@ func (v *Vault) GetSecret(ctx context.Context, secretPath string, secretValue st
 
 	resp, err := v.client.Do(r.WithContext(ctx))
 	if err != nil {
-		log.Error("GETT'ing request",
+		log.Error("GET'ing request",
 			zap.String("secretPath", secretPath),
 			zap.Error(err))
 		return "", err
@@ -91,9 +91,6 @@ func (v *Vault) GetSecret(ctx context.Context, secretPath string, secretValue st
 		return "", err
 	}
 
-	log.Debug("vaultResponse Unmarshaled",
-		zap.Any("output", output))
-
 	m := structs.Map(output.Data)
 
 	s, ok := m[secretValue]
@@ -107,7 +104,6 @@ func (v *Vault) GetSecret(ctx context.Context, secretPath string, secretValue st
 	}
 
 	secret = strings.Replace(secret, "\\n", "\n", -1)
-	log.Debug("done", zap.String("secret", secret))
 
 	return secret, nil
 }
