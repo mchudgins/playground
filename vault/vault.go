@@ -1,9 +1,23 @@
 package vault
 
-import "go.uber.org/zap"
+import (
+	"net/http"
+
+	"go.uber.org/zap"
+)
 
 type Vault struct {
-	Address string
-	Token   string
-	Logger  *zap.Logger
+	address string
+	token   string
+	logger  *zap.Logger
+	client  *http.Client
+}
+
+func New(logger *zap.Logger, address, token string) *Vault {
+	return &Vault{
+		logger:  logger,
+		address: address,
+		token:   token,
+		client:  &http.Client{},
+	}
 }

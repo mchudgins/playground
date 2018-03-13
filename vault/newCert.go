@@ -31,11 +31,11 @@ type createCertResponse struct {
 }
 
 func (v *Vault) NewCert(ctx context.Context, commonName string, alternativeNames []string) (cert string, key string, err error) {
-	v.Logger.Debug("vault.NewCert+",
+	v.logger.Debug("vault.NewCert+",
 		zap.String("commonName", commonName),
 		zap.Any("alternativeNames", alternativeNames))
-	defer v.Logger.Debug("vault.NewCert-")
-	log := v.Logger
+	defer v.logger.Debug("vault.NewCert-")
+	log := v.logger
 
 	var alt string
 	for _, name := range alternativeNames {
@@ -61,16 +61,15 @@ func (v *Vault) NewCert(ctx context.Context, commonName string, alternativeNames
 
 	// need to POST the data to the vault api
 
-	c := &http.Client{}
 	body := bytes.NewReader(buf)
-	r, err := http.NewRequest("POST", v.Address+"/v1/ucap/issue/dst-cloud", body)
+	r, err := http.NewRequest("POST", v.address+"/v1/ucap/issue/dst-cloud", body)
 	if err != nil {
 		log.Error("unable to create http.Request", zap.Error(err))
 		return
 	}
-	r.Header.Set("X-Vault-Token", v.Token)
+	r.Header.Set("X-Vault-Token", v.token)
 
-	resp, err := c.Do(r)
+	resp, err := v.client.Do(r)
 	if err != nil {
 		log.Error("POST'ing request", zap.Error(err))
 		return

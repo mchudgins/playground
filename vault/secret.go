@@ -21,10 +21,12 @@
 package vault
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/fatih/structs"
 	"go.uber.org/zap"
@@ -43,21 +45,24 @@ type vaultResponse struct {
 	Data          vaultSecret `json:"data"`
 }
 
-func (v *Vault) GetSecret(secretPath string, secretValue string) (string, error) {
-	log := v.Logger
+func (v *Vault) GetSecret(ctx context.Context, secretPath string, secretValue string) (string, error) {
+	log := v.logger
 	log.Debug("vault.GetSecret+",
 		zap.Any("secret", secretPath))
 	defer log.Debug("vault.GetSecret-")
 
-	c := &http.Client{}
-	r, err := http.NewRequest("GET", v.Address+"/v1/"+secretPath, http.NoBody)
+	if v.client == nil {
+		v.client = &http.Client{}
+	}
+
+	r, err := http.NewRequest("GET", v.address+"/v1/"+secretPath, http.NoBody)
 	if err != nil {
 		log.Error("unable to create http.Request", zap.Error(err))
 		return "", err
 	}
-	r.Header.Set("X-Vault-Token", v.Token)
+	r.Header.Set("X-Vault-Token", v.token)
 
-	resp, err := c.Do(r)
+	resp, err := v.client.Do(r.WithContext(ctx))
 	if err != nil {
 		log.Error("GETT'ing request",
 			zap.String("secretPath", secretPath),
@@ -101,7 +106,43 @@ func (v *Vault) GetSecret(secretPath string, secretValue string) (string, error)
 		return "", fmt.Errorf("Secret '%s' failed string type assertion (%+v)", secretValue, s)
 	}
 
+	secret = strings.Replace(secret, "\\n", "\n", -1)
 	log.Debug("done", zap.String("secret", secret))
 
 	return secret, nil
+}
+
+func (v *Vault) StoreSecret(secretPath, secretName, secretValue string) error {
+	log := v.logger
+	log.Debug("vault.StoreSecret+",
+		zap.String("secret", secretPath),
+		zap.String("name", secretName))
+	defer log.Debug("vault.StoreSecret-")
+
+	buf := fmt.Sprintf("{ \"%s\": \"%s\" }", secretName,
+		strings.Replace(secretValue, "\n", "\\n", -1))
+	body := strings.NewReader(buf)
+	r, err := http.NewRequest("POST", v.address+"/v1/"+secretPath, body)
+	if err != nil {
+		log.Error("unable to create http.Request", zap.Error(err))
+		return err
+	}
+	r.Header.Set("X-Vault-Token", v.token)
+
+	resp, err := v.client.Do(r)
+	if err != nil {
+		log.Error("POST'ing request", zap.Error(err))
+		return err
+	}
+	if resp.StatusCode != http.StatusNoContent {
+		response, err := ioutil.ReadAll(resp.Body)
+		err = fmt.Errorf("unable to create certificate -- expected 204 response, got %d", resp.StatusCode)
+		log.Error("while calling Vault",
+			zap.Error(err),
+			zap.ByteString("response", response),
+			zap.Int("StatusCode", resp.StatusCode))
+		return err
+	}
+
+	return nil
 }

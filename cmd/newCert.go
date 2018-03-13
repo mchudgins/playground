@@ -30,6 +30,7 @@ import (
 	"github.com/mchudgins/playground/log"
 	"github.com/mchudgins/playground/vault"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 const (
@@ -60,11 +61,7 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		v := vault.Vault{
-			Address: vaultAddress,
-			Token:   vaultToken,
-			Logger:  logger,
-		}
+		v := vault.New(logger, vaultAddress, vaultToken)
 		cert, key, err := v.NewCert(ctx, args[0], args[1:])
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "Error creating certificate: %s\n\n", err)
@@ -101,31 +98,54 @@ GQAkLE59fvxQs8A11mNL
 			fmt.Printf("%s\n%s\n\n", cert, key)
 		}
 
-		gitlabPassword, err := v.GetSecret(vaultGitlabURL, "Password") // secretValue MUST start with Uppercase
+		gitlabPassword, err := v.GetSecret(ctx, vaultGitlabURL, "Password") // secretValue MUST start with Uppercase
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "Unable to retrieve the gitlab password for the service agent -- %s", err)
 			os.Exit(3)
 		}
 
-		gitlabToken, err := v.GetSecret(vaultGitlabURL, "Token") // secretValue MUST start with Uppercase
+		gitlabToken, err := v.GetSecret(ctx, vaultGitlabURL, "Token") // secretValue MUST start with Uppercase
 		if err != nil {
 			fmt.Fprintf(cmd.OutOrStderr(), "Unable to retrieve the gitlab token for the service agent -- %s", err)
 			os.Exit(3)
 		}
 
-		repo := &repo.GitWrapper{
-			Logger:         logger,
-			Repository:     repository,
-			GitlabUsername: gitlabUsername,
-			GitlabPassword: gitlabPassword,
-			GitlabToken:    gitlabToken,
+		type feedback struct {
+			thread string
+			err    error
 		}
+		c := make(chan feedback)
+		go func(t string) {
+			err := v.StoreSecret("secret/certificates/"+args[0], "key", key)
+			if err != nil {
+				logger.Error("unable to store secret in vault",
+					zap.Error(err))
+			}
+			c <- feedback{
+				thread: t,
+				err:    err,
+			}
+		}("storeSecret")
 
-		err = repo.AddOrUpdateFile(ctx, args[0], args, "somebody@example.com", cert)
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "Unable to commit certificate to git repository: %s\n\n", err)
-			os.Exit(2)
-		}
+		go func(t string) {
+			repo := &repo.GitWrapper{
+				Logger:         logger,
+				Repository:     repository,
+				GitlabUsername: gitlabUsername,
+				GitlabPassword: gitlabPassword,
+				GitlabToken:    gitlabToken,
+			}
+
+			err := repo.AddOrUpdateFile(ctx, args[0], args, "somebody@example.com", cert)
+			if err != nil {
+				fmt.Fprintf(cmd.OutOrStderr(), "Unable to commit certificate to git repository: %s\n\n", err)
+			}
+			c <- feedback{
+				thread: t,
+				err:    err,
+			}
+		}("createMergeRequest")
+
 	},
 }
 
