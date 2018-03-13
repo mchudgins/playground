@@ -98,23 +98,65 @@ GQAkLE59fvxQs8A11mNL
 			fmt.Printf("%s\n%s\n\n", cert, key)
 		}
 
-		gitlabPassword, err := v.GetSecret(ctx, vaultGitlabURL, "Password") // secretValue MUST start with Uppercase
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "Unable to retrieve the gitlab password for the service agent -- %s", err)
-			os.Exit(3)
-		}
-
-		gitlabToken, err := v.GetSecret(ctx, vaultGitlabURL, "Token") // secretValue MUST start with Uppercase
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "Unable to retrieve the gitlab token for the service agent -- %s", err)
-			os.Exit(3)
-		}
-
 		type feedback struct {
+			result string
 			thread string
 			err    error
 		}
 		c := make(chan feedback)
+
+		// go get password & token for gitlab (in parallel)
+
+		secretGetter := func(ctx context.Context, c chan feedback, secret string) {
+			val, err := v.GetSecret(ctx, vaultGitlabURL, secret) // secretValue MUST start with Uppercase
+			if err != nil {
+				fmt.Errorf("unable to retrieve the gitlab %s for the service agent -- %s", secret, err)
+			}
+			c <- feedback{
+				thread: secret,
+				result: val,
+				err:    err,
+			}
+		}
+
+		var gitlabPassword, gitlabToken string
+		go secretGetter(ctx, c, "Password")
+		go secretGetter(ctx, c, "Token")
+
+		for i := 0; i < 2; i++ {
+			f := <-c
+			if f.err != nil {
+				fmt.Fprintf(cmd.OutOrStderr(), "Error: %s\n", err)
+				os.Exit(2)
+			}
+			if f.thread == "Token" {
+				gitlabToken = f.result
+			} else {
+				gitlabPassword = f.result
+			}
+		}
+
+		// store the public key in a new git branch & create a merge request
+		go func(t string) {
+			repo := &repo.GitWrapper{
+				Logger:         logger,
+				Repository:     repository,
+				GitlabUsername: gitlabUsername,
+				GitlabPassword: gitlabPassword,
+				GitlabToken:    gitlabToken,
+			}
+
+			err := repo.AddOrUpdateFile(ctx, args[0], args, "somebody@example.com", cert)
+			if err != nil {
+				err = fmt.Errorf("unable to commit certificate to git repository: %s", err)
+			}
+			c <- feedback{
+				thread: t,
+				err:    err,
+			}
+		}("createMergeRequest")
+
+		// store the private key in Vault
 		go func(t string) {
 			err := v.StoreSecret("secret/certificates/"+args[0], "key", key)
 			if err != nil {
@@ -127,25 +169,13 @@ GQAkLE59fvxQs8A11mNL
 			}
 		}("storeSecret")
 
-		go func(t string) {
-			repo := &repo.GitWrapper{
-				Logger:         logger,
-				Repository:     repository,
-				GitlabUsername: gitlabUsername,
-				GitlabPassword: gitlabPassword,
-				GitlabToken:    gitlabToken,
+		for i := 0; i < 2; i++ {
+			f := <-c
+			if f.err != nil {
+				fmt.Fprintf(cmd.OutOrStderr(), "Error: %s\n", err)
+				os.Exit(3)
 			}
-
-			err := repo.AddOrUpdateFile(ctx, args[0], args, "somebody@example.com", cert)
-			if err != nil {
-				fmt.Fprintf(cmd.OutOrStderr(), "Unable to commit certificate to git repository: %s\n\n", err)
-			}
-			c <- feedback{
-				thread: t,
-				err:    err,
-			}
-		}("createMergeRequest")
-
+		}
 	},
 }
 
