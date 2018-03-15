@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 // connectCmd represents the connect command
@@ -45,7 +46,18 @@ to quickly create a Cobra application.`,
 		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		// if you want to change the loading rules (which files in which order), you can do so here
 
-		configOverrides := &clientcmd.ConfigOverrides{}
+		configOverrides := &clientcmd.ConfigOverrides{
+			ClusterInfo: clientcmdapi.Cluster{
+				LocationOfOrigin:      "dev",
+				Server:                "https://dev.dstcorp.io:8443/",
+				InsecureSkipTLSVerify: true,
+			},
+			AuthInfo: clientcmdapi.AuthInfo{
+				LocationOfOrigin: "dev",
+				Token:            "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJtY2giLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlY3JldC5uYW1lIjoiY2VydC1tZ3ItbGFtYmRhLXRva2VuLWx4NWg2Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImNlcnQtbWdyLWxhbWJkYSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6ImU5YjVkNWFiLTI4NjctMTFlOC05YjU3LTEyNDc0N2YyM2RiYyIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDptY2g6Y2VydC1tZ3ItbGFtYmRhIn0.oGrJUG7NIn0SBPuwA-woZx1YLa2bKbDErj0nCK2xz_He5y7r1JxkFKvRcmhEtdSr-yCLARYiNXUWxwAT5XAw7Vqv1kUK9ZpUydnVJMk9I7-xIDq7Z-6eIkMyudrh4vGL8ssTILG9EoKcs-Xk6housCRbCJXBNIF-ewb2ml-233terW7xyUZnTbXnfbSfnWrx76TfHayiWx9JRWMSo5ZzlAV0st0WpmJyJS3x6umf7c75oK-_29iDGRmk8ZgP4dVPRi8YYqRpMGilGIb07Yu4p4ac4xnSgAlLcER6AHXUq-lrlec_NxWXSX6Thn43SGfAtQ2d06iL9-4DY92yT3m7Fg",
+			},
+		}
+
 		// if you want to change override values or bind them to flags, there are methods to help you
 
 		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
