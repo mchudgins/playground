@@ -62,7 +62,9 @@ func (v *Vault) NewCert(ctx context.Context, commonName string, alternativeNames
 	body := bytes.NewReader(buf)
 	r, err := http.NewRequest("POST", v.address+"/v1/ucap/issue/dst-cloud", body)
 	if err != nil {
-		log.Error("unable to create http.Request", zap.Error(err))
+		log.Error("unable to create http.Request",
+			zap.String("client", fmt.Sprintf("%+v", v.client)),
+			zap.Error(err))
 		return
 	}
 	r.Header.Set("X-Vault-Token", v.token)
